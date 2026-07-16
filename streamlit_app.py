@@ -133,7 +133,7 @@ if "Visão Geral" in menu_opcao and not df_alertas.empty:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         df_abertos.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
         
-        styler = df_abertos.style.applymap(colorir_status, subset=["Status"]).applymap(colorir_dias, subset=["Dias Restantes"])
+        styler = df_abertos.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
         st.dataframe(styler, use_container_width=True, hide_index=True)
 
     with col_detalhes:
