@@ -211,14 +211,18 @@ elif menu_opcao == "➕ Novo Alerta":
             area = st.selectbox("Área Responsável", ["Produção", "Ferramentaria", "Processo", "Injeção", "Qualidade"])
             responsavel = st.text_input("Nome do Responsável", placeholder="Ex: João Silva")
             prazo = st.date_input("Prazo para Ação", value=date.today())
-            status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO"])
+            status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO", "ENCERRADO"])
             
         submetido = st.form_submit_button("Gravar Ocorrência no Banco")
         if submetido:
             if not id_alerta or not produto or not lote or not defeito or not responsavel:
                 st.warning("⚠️ Preencha todos os campos obrigatórios!")
             else:
-                dias_restantes = (prazo - date.today()).days
+                # Calcula os dias restantes baseado no prazo escolhido (se encerrado, fica 0)
+                if status == "ENCERRADO":
+                     dias_restantes = 0
+                else:
+                    dias_restantes = (prazo - date.today()).days
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
