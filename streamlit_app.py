@@ -292,7 +292,7 @@ elif menu_opcao == "📈 Análises":
     
     fig_pareto = go.Figure()
     fig_pareto.add_trace(go.Bar(x=df_pareto["Defeito"], y=df_pareto["Qtd"], name="Quantidade", marker_color="#0E4687"))
-    fig_pareto.add_trace(go.Scatter(x=df_pareto["Defeito"], y=df_pareto["% Acumulada"], name="% Acumulada", yaxis="y2", color="#EF4444", mode="lines+markers"))
+    fig_pareto.add_trace(go.Scatter(x=df_pareto["Defeito"], y=df_pareto["% Acumulada"], name="% Acumulada", yaxis="y2", line=dict(color="#EF4444"), mode="lines+markers"))
     
     fig_pareto.update_layout(
         title="Diagrama de Pareto: Principais Causas de Defeito",
