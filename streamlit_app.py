@@ -168,69 +168,75 @@ if menu_opcao == "🏠 Visão Geral":
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
             
-            # Caixa de seleção interativa para o usuário clicar e carregar os detalhes do alerta específico
-            alerta_selecionado = st.selectbox("Selecione uma AQ na lista para detalhar:", df_display["Nº AQ"].tolist())
-            
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
         else:
             st.success("Nenhum alerta em aberto no momento!")
-            alerta_selecionado = None
 
-    # ====== CARD DE DETALHES IDENTICO À IMAGEM DE REFERÊNCIA ======
+    # ====== CARD DE DETALHES EXCLUSIVO DE VENCIDOS ======
     with col_detalhes:
-        if alerta_selecionado:
-            item = df_alertas[df_alertas['id'] == alerta_selecionado].iloc[0]
-        else:
-            item = df_alertas.iloc[0]
-            
-        # Puxa campos extras ou cria valores padrão caso não estejam estruturados no banco de dados
-        data_emissao = item.get('data_emissao', '08/07/2026')
-        contencao = item.get('acao_contencao', 'Ajuste no processo produtivo')
-        observacoes = item.get('observacoes', 'Defeito recorrente identificado pelo operador no início do turno.')
+        # Filtra estritamente os alertas que estão VENCIDOS
+        df_vencidos_detalhe = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
         
-        status_atual = item['status']
-        if status_atual == "VENCIDO":
-            status_cor = "#EF4444"  # Vermelho
-        elif status_atual == "PRÓX. DO PRAZO":
-            status_cor = "#F59E0B"  # Amarelo/Laranja
+        if not df_vencidos_detalhe.empty:
+            # Dropdown que lista APENAS as AQs vencidas
+            alerta_vencido_selecionado = st.selectbox(
+                "⚠️ Selecione a AQ Vencida para auditar:", 
+                df_vencidos_detalhe["id"].tolist()
+            )
+            
+            # Puxa o item selecionado
+            item = df_vencidos_detalhe[df_vencidos_detalhe['id'] == alerta_vencido_selecionado].iloc[0]
+            
+            # Define as informações adicionais para o histórico de vencidos
+            data_emissao = item.get('data_emissao', '08/07/2026')
+            contencao = item.get('acao_contencao', 'Ajuste no processo produtivo (Bloqueio preventivo de lote)')
+            observacoes = item.get('observacoes', 'Alerta ultrapassou o prazo limite de tratativa. Necessário plano de ação imediato junto à engenharia.')
+            status_cor = "#EF4444"  # Vermelho para vencidos
+            
+            # Renderização do cabeçalho do card de forma nativa e estilizada
+            st.markdown(f"""
+            <div style="background-color: #FEE2E2; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #FCA5A5; border-bottom: none; font-family: 'Segoe UI', sans-serif;">
+                <div style="color: #991B1B; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px;">DETALHES DO ALERTA VENCIDO</div>
+                <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 1px;">{item['id']}</div>
+                <div style="text-align: center; font-weight: bold; color: #991B1B; font-size: 13.5px; margin-bottom: 0px;">{item['defeito']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Corpo do painel de auditoria de vencidos
+            with st.container(border=True):
+                st.markdown(f"📁 **Produto:** &nbsp;&nbsp; `{item['produto']}`")
+                st.markdown(f"📦 **Lote:** &nbsp;&nbsp; `{item['lote']}`")
+                st.markdown(f"🏢 **Área Responsável:** &nbsp;&nbsp; `{item['area']}`")
+                st.markdown(f"👤 **Responsável:** &nbsp;&nbsp; `{item['responsavel']}`")
+                st.markdown(f"📅 **Data de Emissão:** &nbsp;&nbsp; `{data_emissao}`")
+                
+                st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
+                st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']} (Atrasado)</span>", unsafe_allow_html=True)
+                
+                # Badge de status vencido fixo
+                st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>VENCIDO</span>", unsafe_allow_html=True)
+                
+                st.divider()
+                
+                st.markdown("⚠️ **Ação de Contenção Exigida:**")
+                st.caption(contencao)
+                
+                st.markdown("🚨 **Histórico / Observações de Atraso:**")
+                st.error(observacoes)
+                
+                # Botão de visualização do histórico
+                if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
+                    st.info("💡 Redirecionando para aba 'Relatórios' para visualização do histórico de atrasos.")
         else:
-            status_cor = "#10B981"  # Verde
-            
-        # Renderização do cabeçalho do card de forma nativa e estilizada para evitar quebras
-        st.markdown(f"""
-        <div style="background-color: #FFFFFF; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #E5E7EB; border-bottom: none; box-shadow: 0 4px 12px rgba(0,0,0,0.02); font-family: 'Segoe UI', sans-serif;">
-            <div style="color: #1E3A8A; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px;">DETALHES DO ALERTA</div>
-            <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 1px;">{item['id']}</div>
-            <div style="text-align: center; font-weight: bold; color: #374151; font-size: 13.5px; margin-bottom: 0px;">{item['defeito']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Estrutura limpa do corpo do painel com marcações do Streamlit (Sem quebras de HTML)
-        with st.container(border=True):
-            st.markdown(f"📁 **Produto:** &nbsp;&nbsp; `{item['produto']}`")
-            st.markdown(f"📦 **Lote:** &nbsp;&nbsp; `{item['lote']}`")
-            st.markdown(f"🏢 **Área Responsável:** &nbsp;&nbsp; `{item['area']}`")
-            st.markdown(f"👤 **Responsável:** &nbsp;&nbsp; `{item['responsavel']}`")
-            st.markdown(f"📅 **Data de Emissão:** &nbsp;&nbsp; `{data_emissao}`")
-            
-            st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
-            st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']}</span>", unsafe_allow_html=True)
-            
-            # Badge de status em destaque
-            st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>{status_atual}</span>", unsafe_allow_html=True)
-            
-            st.divider()
-            
-            st.markdown("🔔 **Ação de Contenção:**")
-            st.caption(contencao)
-            
-            st.markdown("📣 **Observações:**")
-            st.info(observacoes)
-            
-            # Botão de visualização do histórico
-            if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
-                st.info("💡 Acesse a aba 'Relatórios' no menu lateral para visualizar toda a base histórica.")
+            # Caso não haja nenhum vencido (vencidos == 0)
+            st.markdown("""
+            <div style="background-color: #D1FAE5; padding: 25px; border-radius: 12px; border: 1px solid #34D399; text-align: center; font-family: 'Segoe UI', sans-serif;">
+                <span style="font-size: 40px;">🎉</span>
+                <h4 style="color: #065F46; margin-top: 10px;">OPERACIONAL 100%</h4>
+                <p style="color: #047857; font-size: 13px;">Nenhum alerta de qualidade está vencido ou em atraso hoje!</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
