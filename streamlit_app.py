@@ -26,6 +26,73 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
+        
+        /* Estilização do Card de Detalhes lateral */
+        .detalhes-card {
+            background-color: #FFFFFF;
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .detalhes-titulo {
+            color: #1E3A8A;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .detalhes-id {
+            color: #EF4444;
+            text-align: center;
+            font-size: 26px;
+            font-weight: 800;
+            margin: 0 0 5px 0;
+        }
+        .detalhes-subtitulo {
+            text-align: center;
+            font-weight: bold;
+            color: #374151;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .detalhes-tabela {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+            margin-bottom: 15px;
+        }
+        .detalhes-tabela td {
+            padding: 8px 0;
+            border-bottom: 1px solid #F3F4F6;
+            color: #374151;
+        }
+        .detalhes-label {
+            color: #6B7280;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            color: white;
+            font-size: 11px;
+            display: inline-block;
+        }
+        .obs-box {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 12.5px;
+            color: #4B5563;
+            margin-top: 5px;
+            min-height: 80px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -42,7 +109,7 @@ except Exception as e:
     st.error("Erro ao conectar ao banco de dados. Verifique as credenciais.")
     st.stop()
 
-# 2. Carregar dados reais do Supabase
+# 2. Carregar e processar dados de forma dinâmica e em tempo real
 def carregar_dados():
     try:
         resposta = supabase.table("alertas").select("*").execute()
@@ -50,16 +117,32 @@ def carregar_dados():
         if df.empty:
             return pd.DataFrame(), {}, {}, {}, pd.DataFrame()
         
-        # Ajuste de tipos de dados
-        df['prazo'] = pd.to_datetime(df['prazo']).dt.date
-        df['dias_restantes'] = df['dias_restantes'].astype(int)
+        # Data de hoje para cálculos (16/07/2026)
+        hoje = date.today()
         
-        # Agregações para os gráficos gráficos dinâmicos
+        # Converte o prazo para tipo data
+        df['prazo'] = pd.to_datetime(df['prazo']).dt.date
+        
+        # ====== RECALCULO DINÂMICO DE PRAZOS E STATUS ======
+        for index, row in df.iterrows():
+            if row['status'] == 'ENCERRADO':
+                df.at[index, 'dias_restantes'] = 0
+            else:
+                dias = (row['prazo'] - hoje).days
+                df.at[index, 'dias_restantes'] = dias
+                # Define o status dinamicamente se não estiver encerrado
+                if dias < 0:
+                    df.at[index, 'status'] = 'VENCIDO'
+                elif dias <= 5:
+                    df.at[index, 'status'] = 'PRÓX. DO PRAZO'
+                else:
+                    df.at[index, 'status'] = 'EM DIA'
+        
+        # Agregações para gráficos baseados nas regras dinâmicas
         area_dist = df["area"].value_counts().to_dict()
         status_dist = df["status"].value_counts().to_dict()
         defeito_dist = df["defeito"].value_counts().to_dict()
         
-        # Histórico temporal padrão do dashboard de referência
         df_tempo = pd.DataFrame({
             "Mês": ["Fev/26", "Mar/26", "Abr/26", "Mai/26", "Jun/26", "Jul/26"],
             "Dias": [18.7, 15.2, 12.8, 14.2, 13.9, 14.2]
@@ -80,7 +163,7 @@ def colorir_status(val):
     return 'background-color: #F3F4F6; color: #374151; text-align: center;'
 
 def colorir_dias(val):
-    if val <= 2: return 'color: #EF4444; font-weight: bold;'
+    if val < 0: return 'color: #EF4444; font-weight: bold;'
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
@@ -108,7 +191,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<small style='color: gray;'>Painel Sincronizado</small>", unsafe_allow_html=True)
 
-# Bloco preventivo caso o banco de dados esteja offline/vazio
 if df_alertas.empty:
     st.warning("Aguardando carregamento ou sem dados cadastrados no Supabase.")
     st.stop()
@@ -119,12 +201,16 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("##### Monitoramento integrado de não-conformidades em tempo real")
     st.markdown("---")
 
-    # Cálculos dinâmicos dos cartões KPI no topo
+    # KPIs dinâmicos atualizados em tempo real pelas novas regras
     total_alertas = len(df_alertas)
     abertos = len(df_alertas[df_alertas['status'] != 'ENCERRADO'])
     vencidos = len(df_alertas[df_alertas['status'] == 'VENCIDO'])
     encerrados = len(df_alertas[df_alertas['status'] == 'ENCERRADO'])
-    no_prazo = "82,1%"
+    
+    # Cálculo real de % no prazo: (total_no_prazo / total_abertos) * 100
+    total_no_prazo_abertos = len(df_alertas[(df_alertas['status'] != 'ENCERRADO') & (df_alertas['status'] != 'VENCIDO')])
+    percentual_prazo = (total_no_prazo_abertos / abertos * 100) if abertos > 0 else 100.0
+    no_prazo_str = f"{percentual_prazo:.1f}%"
 
     kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
     with kpi1:
@@ -136,38 +222,104 @@ if menu_opcao == "🏠 Visão Geral":
     with kpi4:
         st.markdown(f'<div class="kpi-card" style="background-color: #10B981;"><div class="kpi-title">ALERTAS ENCERRADOS</div><div class="kpi-value">{encerrados}</div><div class="kpi-subtitle">Concluídos</div></div>', unsafe_allow_html=True)
     with kpi5:
-        st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{no_prazo}</div><div class="kpi-subtitle" style="color: #6B7280;">Meta: 80%</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{no_prazo_str}</div><div class="kpi-subtitle" style="color: #6B7280;">Meta: 80%</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("### ALERTAS EM ABERTO")
-    col_tabela, col_detalhes = st.columns([3, 1.2])
+    col_tabela, col_detalhes = st.columns([3, 1.3])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         if not df_abertos.empty:
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
+            
+            # Caixa de seleção interativa para o usuário clicar e carregar os detalhes do alerta específico
+            alerta_selecionado = st.selectbox("Selecione uma AQ na lista para detalhar:", df_display["Nº AQ"].tolist())
+            
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
         else:
             st.success("Nenhum alerta em aberto no momento!")
+            alerta_selecionado = None
 
+    # ====== CARD DE DETALHES IDENTICO À IMAGEM DE REFERÊNCIA ======
     with col_detalhes:
-        primeiro = df_alertas.iloc[0]
+        if alerta_selecionado:
+            item = df_alertas[df_alertas['id'] == alerta_selecionado].iloc[0]
+        else:
+            item = df_alertas.iloc[0]
+            
+        # Puxa campos extras ou cria valores padrão caso não estejam estruturados no banco de dados
+        data_emissao = item.get('data_emissao', '08/07/2026')
+        contencao = item.get('acao_contencao', 'Ajuste no processo produtivo')
+        observacoes = item.get('observacoes', 'Defeito recorrente identificado pelo operador no início do turno.')
+        
+        status_color = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
+        
         st.markdown(f"""
-            <div style="background-color: #FFFFFF; padding: 20px; border-radius: 8px; border: 1px solid #E5E7EB; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <h4 style="color: #EF4444; margin-top: 0;">DETALHES DO SELECIONADO</h4>
-                <h3 style="margin: 5px 0 15px 0;">{primeiro['id']}</h3>
-                <p style="font-weight: bold; color: #4B5563; margin-bottom: 15px;">{primeiro['defeito']}</p>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <tr style="border-bottom: 1px solid #F3F4F6;"><td style="padding: 6px 0; color: #6B7280;">Produto:</td><td style="font-weight: 500; text-align: right;">{primeiro['produto']}</td></tr>
-                    <tr style="border-bottom: 1px solid #F3F4F6;"><td style="padding: 6px 0; color: #6B7280;">Lote:</td><td style="font-weight: 500; text-align: right;">{primeiro['lote']}</td></tr>
-                    <tr style="border-bottom: 1px solid #F3F4F6;"><td style="padding: 6px 0; color: #6B7280;">Responsável:</td><td style="font-weight: 500; text-align: right;">{primeiro['responsavel']}</td></tr>
-                    <tr style="border-bottom: 1px solid #F3F4F6;"><td style="padding: 6px 0; color: #6B7280;">Prazo Ação:</td><td style="font-weight: bold; color: #EF4444; text-align: right;">{primeiro['prazo']}</td></tr>
+            <div class="detalhes-card">
+                <div class="detalhes-titulo">DETALHES DO ALERTA</div>
+                <div class="detalhes-id">{item['id']}</div>
+                <div class="detalhes-subtitulo">{item['defeito']}</div>
+                
+                <table class="detalhes-tabela">
+                    <tr>
+                        <td class="detalhes-label">📁 Produto:</td>
+                        <td style="text-align: right; font-weight: 500;">{item['produto']}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">📦 Lote:</td>
+                        <td style="text-align: right; font-weight: 500;">{item['lote']}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">🏢 Área Responsável:</td>
+                        <td style="text-align: right; font-weight: 500;">{item['area']}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">👤 Responsável:</td>
+                        <td style="text-align: right; font-weight: 500;">{item['responsavel']}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">📅 Data de Emissão:</td>
+                        <td style="text-align: right; font-weight: 500;">{data_emissao}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">🕒 Prazo para Ação:</td>
+                        <td style="text-align: right; font-weight: bold; color: #EF4444;">{item['prazo'].strftime('%d/%m/%Y')}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">🕒 Dias Restantes:</td>
+                        <td style="text-align: right; font-weight: bold; color: {status_color};">{item['dias_restantes']}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label">🛡️ Status Atual:</td>
+                        <td style="text-align: right;">
+                            <span class="status-badge" style="background-color: {status_color};">{item['status']}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label" colspan="2" style="border: none; padding-top: 15px; font-weight: bold; color: #1E3A8A;">🔔 Ação de Contenção:</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="border: none; padding-top: 0; font-size: 13px;">{contencao}</td>
+                    </tr>
+                    <tr>
+                        <td class="detalhes-label" colspan="2" style="border: none; padding-top: 15px; font-weight: bold; color: #1E3A8A;">📣 Observações:</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="border: none; padding-top: 0;">
+                            <div class="obs-box">{observacoes}</div>
+                        </td>
+                    </tr>
                 </table>
             </div>
         """, unsafe_allow_html=True)
+        
+        # Botão para redirecionar para a aba Histórico / Relatórios
+        if st.button("VER HISTÓRICO COMPLETO", use_container_width=True):
+            st.info("💡 Acesse a aba 'Relatórios' no menu lateral para visualizar toda a base histórica.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -218,11 +370,11 @@ elif menu_opcao == "➕ Novo Alerta":
             if not id_alerta or not produto or not lote or not defeito or not responsavel:
                 st.warning("⚠️ Preencha todos os campos obrigatórios!")
             else:
-                # Calcula os dias restantes baseado no prazo escolhido (se encerrado, fica 0)
                 if status == "ENCERRADO":
-                     dias_restantes = 0
+                    dias_restantes = 0
                 else:
                     dias_restantes = (prazo - date.today()).days
+                    
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
@@ -242,22 +394,24 @@ elif menu_opcao == "🔔 Alertas Abertos":
     df_filtrado = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
     
     if not df_filtrado.empty:
-        df_filtrado.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_filtrado.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
+        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
+        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum alerta aberto no momento.")
 
-# --- 4. TELA: ALERTAS VENCIDOS (ESSENCIAL PARA GESTÃO) ---
+# --- 4. TELA: ALERTAS VENCIDOS (DINÂMICO) ---
 elif menu_opcao == "⏰ Alertas Vencidos":
     st.title("⏰ ALERTAS VENCIDOS E EM ATRASO")
-    st.markdown("Filtro crítico operacional focado em ações com prazos expirados.")
+    st.markdown("Filtro crítico operacional focado em ações com prazos de validade já expirados.")
     df_filtrado = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
     
     if not df_filtrado.empty:
-        df_filtrado.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_filtrado.style.map(colorir_status, subset=["Status"]), use_container_width=True, hide_index=True)
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
+        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
+        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
     else:
-        st.success("Excelente! Não existem alertas em atraso no momento.")
+        st.success("Excelente! Não existem alertas vencidos no momento.")
 
 # --- 5. TELA: ENCERRADOS ---
 elif menu_opcao == "✔️ Encerrados":
@@ -266,8 +420,9 @@ elif menu_opcao == "✔️ Encerrados":
     df_filtrado = df_alertas[df_alertas['status'] == 'ENCERRADO'].copy()
     
     if not df_filtrado.empty:
-        df_filtrado.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_filtrado.style.map(colorir_status, subset=["Status"]), use_container_width=True, hide_index=True)
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
+        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
+        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]), use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum alerta foi movido para o status 'ENCERRADO' ainda.")
 
@@ -313,7 +468,6 @@ elif menu_opcao == "📄 Relatórios":
     
     st.dataframe(df_alertas, use_container_width=True, hide_index=True)
     
-    # Função para conversão do DataFrame em formato executável CSV
     @st.cache_data
     def converter_csv(df_dados):
         return df_dados.to_csv(index=False).encode('utf-8')
