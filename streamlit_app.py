@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada corporativa
+# Estilização CSS customizada corporativa (Layout e KPIs)
 st.markdown("""
     <style>
         .reportview-container { background-color: #F4F6F9; }
@@ -26,73 +26,6 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
-        
-        /* Estilização do Card de Detalhes lateral */
-        .detalhes-card {
-            background-color: #FFFFFF;
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid #E5E7EB;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .detalhes-titulo {
-            color: #1E3A8A;
-            text-align: center;
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-        .detalhes-id {
-            color: #EF4444;
-            text-align: center;
-            font-size: 26px;
-            font-weight: 800;
-            margin: 0 0 5px 0;
-        }
-        .detalhes-subtitulo {
-            text-align: center;
-            font-weight: bold;
-            color: #374151;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-        .detalhes-tabela {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13.5px;
-            margin-bottom: 15px;
-        }
-        .detalhes-tabela td {
-            padding: 8px 0;
-            border-bottom: 1px solid #F3F4F6;
-            color: #374151;
-        }
-        .detalhes-label {
-            color: #6B7280;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: bold;
-            color: white;
-            font-size: 11px;
-            display: inline-block;
-        }
-        .obs-box {
-            background-color: #F9FAFB;
-            border: 1px solid #E5E7EB;
-            border-radius: 6px;
-            padding: 12px;
-            font-size: 12.5px;
-            color: #4B5563;
-            margin-top: 5px;
-            min-height: 80px;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +50,7 @@ def carregar_dados():
         if df.empty:
             return pd.DataFrame(), {}, {}, {}, pd.DataFrame()
         
-        # Data de hoje para cálculos (16/07/2026)
+        # Data de hoje para cálculos dinâmicos de prazos (16/07/2026)
         hoje = date.today()
         
         # Converte o prazo para tipo data
@@ -227,7 +160,7 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("### ALERTAS EM ABERTO")
-    col_tabela, col_detalhes = st.columns([3, 1.3])
+    col_tabela, col_detalhes = st.columns([3, 1.4])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -256,70 +189,48 @@ if menu_opcao == "🏠 Visão Geral":
         contencao = item.get('acao_contencao', 'Ajuste no processo produtivo')
         observacoes = item.get('observacoes', 'Defeito recorrente identificado pelo operador no início do turno.')
         
-        status_color = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
-        
+        status_atual = item['status']
+        if status_atual == "VENCIDO":
+            status_cor = "#EF4444"  # Vermelho
+        elif status_atual == "PRÓX. DO PRAZO":
+            status_cor = "#F59E0B"  # Amarelo/Laranja
+        else:
+            status_cor = "#10B981"  # Verde
+            
+        # Renderização do cabeçalho do card de forma nativa e estilizada para evitar quebras
         st.markdown(f"""
-            <div class="detalhes-card">
-                <div class="detalhes-titulo">DETALHES DO ALERTA</div>
-                <div class="detalhes-id">{item['id']}</div>
-                <div class="detalhes-subtitulo">{item['defeito']}</div>
-                
-                <table class="detalhes-tabela">
-                    <tr>
-                        <td class="detalhes-label">📁 Produto:</td>
-                        <td style="text-align: right; font-weight: 500;">{item['produto']}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">📦 Lote:</td>
-                        <td style="text-align: right; font-weight: 500;">{item['lote']}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">🏢 Área Responsável:</td>
-                        <td style="text-align: right; font-weight: 500;">{item['area']}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">👤 Responsável:</td>
-                        <td style="text-align: right; font-weight: 500;">{item['responsavel']}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">📅 Data de Emissão:</td>
-                        <td style="text-align: right; font-weight: 500;">{data_emissao}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">🕒 Prazo para Ação:</td>
-                        <td style="text-align: right; font-weight: bold; color: #EF4444;">{item['prazo'].strftime('%d/%m/%Y')}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">🕒 Dias Restantes:</td>
-                        <td style="text-align: right; font-weight: bold; color: {status_color};">{item['dias_restantes']}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label">🛡️ Status Atual:</td>
-                        <td style="text-align: right;">
-                            <span class="status-badge" style="background-color: {status_color};">{item['status']}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label" colspan="2" style="border: none; padding-top: 15px; font-weight: bold; color: #1E3A8A;">🔔 Ação de Contenção:</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="border: none; padding-top: 0; font-size: 13px;">{contencao}</td>
-                    </tr>
-                    <tr>
-                        <td class="detalhes-label" colspan="2" style="border: none; padding-top: 15px; font-weight: bold; color: #1E3A8A;">📣 Observações:</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="border: none; padding-top: 0;">
-                            <div class="obs-box">{observacoes}</div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+        <div style="background-color: #FFFFFF; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #E5E7EB; border-bottom: none; box-shadow: 0 4px 12px rgba(0,0,0,0.02); font-family: 'Segoe UI', sans-serif;">
+            <div style="color: #1E3A8A; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px;">DETALHES DO ALERTA</div>
+            <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 1px;">{item['id']}</div>
+            <div style="text-align: center; font-weight: bold; color: #374151; font-size: 13.5px; margin-bottom: 0px;">{item['defeito']}</div>
+        </div>
         """, unsafe_allow_html=True)
         
-        # Botão para redirecionar para a aba Histórico / Relatórios
-        if st.button("VER HISTÓRICO COMPLETO", use_container_width=True):
-            st.info("💡 Acesse a aba 'Relatórios' no menu lateral para visualizar toda a base histórica.")
+        # Estrutura limpa do corpo do painel com marcações do Streamlit (Sem quebras de HTML)
+        with st.container(border=True):
+            st.markdown(f"📁 **Produto:** &nbsp;&nbsp; `{item['produto']}`")
+            st.markdown(f"📦 **Lote:** &nbsp;&nbsp; `{item['lote']}`")
+            st.markdown(f"🏢 **Área Responsável:** &nbsp;&nbsp; `{item['area']}`")
+            st.markdown(f"👤 **Responsável:** &nbsp;&nbsp; `{item['responsavel']}`")
+            st.markdown(f"📅 **Data de Emissão:** &nbsp;&nbsp; `{data_emissao}`")
+            
+            st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
+            st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']}</span>", unsafe_allow_html=True)
+            
+            # Badge de status em destaque
+            st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>{status_atual}</span>", unsafe_allow_html=True)
+            
+            st.divider()
+            
+            st.markdown("🔔 **Ação de Contenção:**")
+            st.caption(contencao)
+            
+            st.markdown("📣 **Observações:**")
+            st.info(observacoes)
+            
+            # Botão de visualização do histórico
+            if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
+                st.info("💡 Acesse a aba 'Relatórios' no menu lateral para visualizar toda a base histórica.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
