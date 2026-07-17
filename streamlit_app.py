@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -29,7 +29,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. Conexão Secura com o Supabase
+# 1. Conexão Segura com o Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -60,12 +60,16 @@ def carregar_dados():
                 dias = (row['prazo'] - hoje).days
                 df.at[index, 'dias_restantes'] = dias
                 if dias < 0:
-                    df.at[index, 'status'] = 'VENCIDO'
+                    df.at[index, 'status_visual'] = 'VENCIDO'
                 elif dias <= 5:
-                    df.at[index, 'status'] = 'PRÓX. DO PRAZO'
+                    df.at[index, 'status_visual'] = 'PRÓX. DO PRAZO'
                 else:
-                    df.at[index, 'status'] = 'EM DIA'
+                    df.at[index, 'status_visual'] = 'EM DIA'
         
+        # Garante que se a coluna status_visual não foi criada por falta de linhas, ela exista
+        if 'status_visual' not in df.columns:
+            df['status_visual'] = df['status']
+
         area_dist = df["area"].value_counts().to_dict()
         status_dist = df["status"].value_counts().to_dict()
         defeito_dist = df["defeito"].value_counts().to_dict()
@@ -131,7 +135,7 @@ if menu_opcao == "🏠 Visão Geral":
 
     total_alertas = len(df_alertas)
     abertos = len(df_alertas[df_alertas['status'] != 'ENCERRADO'])
-    vencidos = len(df_alertas[df_alertas['status'] == 'VENCIDO'])
+    vencidos = len(df_alertas[df_alertas['status_visual'] == 'VENCIDO'])
     encerrados = len(df_alertas[df_alertas['status'] == 'ENCERRADO'])
     percentual_prazo = (encerrados / total_alertas * 100) if total_alertas > 0 else 100.0
 
@@ -149,7 +153,7 @@ if menu_opcao == "🏠 Visão Geral":
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         if not df_abertos.empty:
-            df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
+            df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status_visual"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
             alerta_selecionado = st.selectbox("Selecione uma AQ na lista para detalhar:", df_display["Nº AQ"].tolist())
             st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
@@ -161,8 +165,7 @@ if menu_opcao == "🏠 Visão Geral":
         if alerta_selecionado:
             item = df_alertas[df_alertas['id'] == alerta_selecionado].iloc[0]
             data_emissao = item.get('data_emissao', '08/07/2026')
-            observacoes = item.get('observacoes', 'Nenhum plano de ação inserido.')
-            status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
+            status_cor = "#EF4444" if item['status_visual'] == "VENCIDO" else ("#F59E0B" if item['status_visual'] == "PRÓX. DO PRAZO" else "#10B981")
             
             st.markdown(f"""
             <div style="background-color: #FFFFFF; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #E5E7EB; border-bottom: none; font-family: 'Segoe UI', sans-serif;">
@@ -181,9 +184,6 @@ if menu_opcao == "🏠 Visão Geral":
                 st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
                 st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']}</span>", unsafe_allow_html=True)
                 st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>{item['status']}</span>", unsafe_allow_html=True)
-                st.divider()
-                st.markdown("📣 **Tratativas, Ações e Observações:**")
-                st.info(observacoes)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -222,7 +222,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================
-# ====== 2. TELA: PÁGINA "➕ INSERIR TRATATIVA" CORRIGIDA ======
+# ====== 2. TELA: PÁGINA "➕ INSERIR TRATATIVA" COMPATÍVEL ======
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
     st.title("➕ REGISTRAR PLANO DE TRATATIVAS E RESOLUÇÃO")
@@ -240,7 +240,10 @@ elif menu_opcao == "➕ Inserir Tratativa":
     st.markdown("### 👤 PASSO 1: Análise do Responsável Técnico")
     confirmar_analise = st.checkbox("Desejo confirmar o OK mostrando que fiz a análise do alerta emitido.")
     
-    acoes_definidas = st.text_area("Adicionar Ações Definidas (Correção do problema encontrado conforme Alerta):")
+    st.caption("Adicionar Ações Definidas (Correção do problema encontrado conforme Alerta):")
+    # Usamos o campo defeito apenas como guia visual já que o banco não aceita textos novos longos
+    st.code(f"Alerta Emitido: {item_aq['defeito']}") 
+    
     responsavel_implementar = st.text_input("Quem vai ser o Responsável para implementar esta ação?", value=item_aq.get('responsavel', ''))
     
     st.markdown("---")
@@ -253,26 +256,23 @@ elif menu_opcao == "➕ Inserir Tratativa":
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.button("💾 GRAVAR E ATUALIZAR TRATATIVA NO SUPABASE", type="primary", use_container_width=True):
-        # Monta a string limpa concatenando as informações
-        status_analise = "ANÁLISE OK" if confirmar_analise else "EM ANÁLISE"
-        status_qualidade = "VALIDADO PELA QUALIDADE" if confirmar_qualidade else "AGUARDANDO VALIDAÇÃO"
         
-        texto_historico = f"[{status_analise}] Ações: {acoes_definidas}. Responsável Implementar: {responsavel_implementar}. [{status_qualidade}]."
-        
+        # Define o novo status compatível com seu banco existente
         status_final = item_aq['status']
         if encerrar_processo or confirmar_qualidade:
             status_final = "ENCERRADO"
+        elif confirmar_analise:
+            status_final = "EM TRATATIVA"
             
-        # Atualizamos APENAS colunas que temos certeza absoluta que existem: observacoes, responsavel e status
+        # Atualizamos estritamente colunas nativas do seu banco
         dados_atualizados = {
-            "observacoes": texto_historico,
             "responsavel": responsavel_implementar,
             "status": status_final
         }
         
         try:
             supabase.table("alertas").update(dados_atualizados).eq("id", aq_selecionada).execute()
-            st.success(f"🎉 Tratativa da AQ {aq_selecionada} gravada e salva com sucesso!")
+            st.success(f"🎉 Tratativa da AQ {aq_selecionada} gravada e salva com sucesso no Supabase!")
             st.cache_data.clear()
             st.rerun()
         except Exception as e:
