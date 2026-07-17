@@ -1,4 +1,4 @@
-import streamlit st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -66,7 +66,6 @@ def carregar_dados():
                 else:
                     df.at[index, 'status_visual'] = 'EM DIA'
         
-        # Garante que se a coluna status_visual não foi criada por falta de linhas, ela exista
         if 'status_visual' not in df.columns:
             df['status_visual'] = df['status']
 
@@ -127,7 +126,7 @@ if df_alertas.empty:
     st.stop()
 
 # ==========================================
-# ====== 1. TELA: VISÃO GERAL (IGUAL À FOTO) ======
+# ====== 1. TELA: VISÃO GERAL ======
 # ==========================================
 if menu_opcao == "🏠 Visão Geral":
     st.title("GESTÃO DE ALERTAS DE QUALIDADE")
@@ -222,7 +221,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================
-# ====== 2. TELA: PÁGINA "➕ INSERIR TRATATIVA" COMPATÍVEL ======
+# ====== 2. TELA: PÁGINA "➕ INSERIR TRATATIVA" ======
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
     st.title("➕ REGISTRAR PLANO DE TRATATIVAS E RESOLUÇÃO")
@@ -241,11 +240,9 @@ elif menu_opcao == "➕ Inserir Tratativa":
     confirmar_analise = st.checkbox("Desejo confirmar o OK mostrando que fiz a análise do alerta emitido.")
     
     st.caption("Adicionar Ações Definidas (Correção do problema encontrado conforme Alerta):")
-    # Usamos o campo defeito apenas como guia visual já que o banco não aceita textos novos longos
     st.code(f"Alerta Emitido: {item_aq['defeito']}") 
     
     responsavel_implementar = st.text_input("Quem vai ser o Responsável para implementar esta ação?", value=item_aq.get('responsavel', ''))
-    
     st.markdown("---")
     
     # PASSO 2: Validação da Qualidade
@@ -256,15 +253,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
     st.markdown("<br>", unsafe_allow_html=True)
     
     if st.button("💾 GRAVAR E ATUALIZAR TRATATIVA NO SUPABASE", type="primary", use_container_width=True):
-        
-        # Define o novo status compatível com seu banco existente
         status_final = item_aq['status']
         if encerrar_processo or confirmar_qualidade:
             status_final = "ENCERRADO"
         elif confirmar_analise:
             status_final = "EM TRATATIVA"
             
-        # Atualizamos estritamente colunas nativas do seu banco
         dados_atualizados = {
             "responsavel": responsavel_implementar,
             "status": status_final
