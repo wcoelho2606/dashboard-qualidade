@@ -222,14 +222,12 @@ if menu_opcao == "🏠 Visão Geral":
             </div>
             """, unsafe_allow_html=True)
 
-    # ==========================================================
-    # ====== SESSÃO DE GRÁFICOS ATUALIZADA (IDÊNTICA À FOTO) ===
-    # ==========================================================
+    # --- INDICADORES GRÁFICOS REESTRUTURADOS ---
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
     g_col1, g_col2, g_col3, g_col4 = st.columns(4)
 
-    # 1. GRÁFICO: ALERTAS POR ÁREA (Rosca com rótulo externo "Qtd (Porcentagem)")
+    # 1. ALERTAS POR ÁREA
     with g_col1:
         st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if area_dist:
@@ -241,9 +239,9 @@ if menu_opcao == "🏠 Visão Geral":
                 values=values_area, 
                 hole=0.5,
                 textinfo='label+value+percent',
-                textposition='outside', # Linhas apontando para fora da borda
+                textposition='outside',
                 insidetextorientation='radial',
-                showlegend=False # Esconde a legenda lateral poluída como na foto
+                showlegend=False
             )])
             fig1.update_layout(
                 title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
@@ -255,14 +253,13 @@ if menu_opcao == "🏠 Visão Geral":
             st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2. GRÁFICO: ALERTAS POR STATUS (Rosca com Legenda limpa "Qtd (Porcentagem)")
+    # 2. ALERTAS POR STATUS (Ajustado Valign aqui)
     with g_col2:
         st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if status_dist:
             labels_status = list(status_dist.keys())
             values_status = list(status_dist.values())
             
-            # Formata a legenda para mostrar "Status - Qtd (Porcentagem)" como na foto
             total_status = sum(values_status)
             legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(labels_status, values_status)]
             
@@ -270,25 +267,24 @@ if menu_opcao == "🏠 Visão Geral":
                 labels=legenda_formatada, 
                 values=values_status, 
                 hole=0.5,
-                textinfo='none', # Sem textos poluindo a rosca
+                textinfo='none', 
                 showlegend=True
             )])
             fig2.update_layout(
                 title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
                 margin=dict(l=10, r=10, t=50, b=10), 
                 height=260,
-                legend=dict(orientation="v", verticalalignment="middle", x=0.85, y=0.5, font=dict(size=10)),
+                legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=10)),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)'
             )
             st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. GRÁFICO: ALERTAS POR TIPO DE DEFEITO (Barras horizontais com valor na frente)
+    # 3. ALERTAS POR TIPO DE DEFEITO
     with g_col3:
         st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if defeito_dist:
-            # Ordena do menor para o maior para a barra maior ficar no topo
             df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
             
             fig3 = go.Figure(go.Bar(
@@ -296,15 +292,15 @@ if menu_opcao == "🏠 Visão Geral":
                 y=df_def['Defeito'],
                 orientation='h',
                 marker_color='#0E4687',
-                text=df_def['Qtd'], # Adiciona a quantidade como texto
-                textposition='outside', # Força o texto a ficar na frente da barra
+                text=df_def['Qtd'], 
+                textposition='outside', 
                 textfont=dict(size=11, color='#374151', weight='bold')
             ))
             fig3.update_layout(
                 title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
                 margin=dict(l=10, r=30, t=50, b=10), 
                 height=260,
-                xaxis=dict(showgrid=False, visible=False), # Esconde o eixo X para foco nos números da frente
+                xaxis=dict(showgrid=False, visible=False), 
                 yaxis=dict(showgrid=False, tickfont=dict(size=11)),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)'
@@ -312,7 +308,7 @@ if menu_opcao == "🏠 Visão Geral":
             st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 4. GRÁFICO: TEMPO MÉDIO DE FECHAMENTO (Linha limpa com valores em cima)
+    # 4. TEMPO MÉDIO DE FECHAMENTO
     with g_col4:
         st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if not df_tempo.empty:
@@ -321,8 +317,8 @@ if menu_opcao == "🏠 Visão Geral":
                 x=df_tempo["Mês"], 
                 y=df_tempo["Dias"], 
                 mode='lines+markers+text',
-                text=df_tempo["Dias"], # Valores numéricos
-                textposition='top center', # Em cima dos pontos
+                text=df_tempo["Dias"], 
+                textposition='top center', 
                 textfont=dict(size=11, color='#374151', weight='bold'),
                 line=dict(color='#0284C7', width=2.5),
                 marker=dict(size=7, color='#0284C7')
