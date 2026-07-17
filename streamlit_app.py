@@ -26,6 +26,15 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
+        
+        /* Estilização para envelopar os gráficos em cards brancos como na imagem */
+        .graph-card {
+            background-color: #FFFFFF;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -50,7 +59,7 @@ def carregar_dados():
         if df.empty:
             return pd.DataFrame(), {}, {}, {}, pd.DataFrame()
         
-        # Data de hoje para cálculos dinâmicos de prazos (16/07/2026)
+        # Data de hoje para cálculos dinâmicos de prazos (17/07/2026)
         hoje = date.today()
         
         # Converte o prazo para tipo data
@@ -63,7 +72,6 @@ def carregar_dados():
             else:
                 dias = (row['prazo'] - hoje).days
                 df.at[index, 'dias_restantes'] = dias
-                # Define o status dinamicamente se não estiver encerrado
                 if dias < 0:
                     df.at[index, 'status'] = 'VENCIDO'
                 elif dias <= 5:
@@ -134,13 +142,12 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("##### Monitoramento integrado de não-conformidades em tempo real")
     st.markdown("---")
 
-    # KPIs dinâmicos atualizados em tempo real pelas novas regras
+    # KPIs dinâmicos
     total_alertas = len(df_alertas)
     abertos = len(df_alertas[df_alertas['status'] != 'ENCERRADO'])
     vencidos = len(df_alertas[df_alertas['status'] == 'VENCIDO'])
     encerrados = len(df_alertas[df_alertas['status'] == 'ENCERRADO'])
     
-    # Cálculo real de % no prazo: (total_no_prazo / total_abertos) * 100
     total_no_prazo_abertos = len(df_alertas[(df_alertas['status'] != 'ENCERRADO') & (df_alertas['status'] != 'VENCIDO')])
     percentual_prazo = (total_no_prazo_abertos / abertos * 100) if abertos > 0 else 100.0
     no_prazo_str = f"{percentual_prazo:.1f}%"
@@ -167,34 +174,21 @@ if menu_opcao == "🏠 Visão Geral":
         if not df_abertos.empty:
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-            
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
-    # ====== CARD DE DETALHES EXCLUSIVO DE VENCIDOS ======
     with col_detalhes:
-        # Filtra estritamente os alertas que estão VENCIDOS
         df_vencidos_detalhe = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
-        
         if not df_vencidos_detalhe.empty:
-            # Dropdown que lista APENAS as AQs vencidas
-            alerta_vencido_selecionado = st.selectbox(
-                "⚠️ Selecione a AQ Vencida para auditar:", 
-                df_vencidos_detalhe["id"].tolist()
-            )
-            
-            # Puxa o item selecionado
+            alerta_vencido_selecionado = st.selectbox("⚠️ Selecione a AQ Vencida para auditar:", df_vencidos_detalhe["id"].tolist())
             item = df_vencidos_detalhe[df_vencidos_detalhe['id'] == alerta_vencido_selecionado].iloc[0]
-            
-            # Define as informações adicionais para o histórico de vencidos
             data_emissao = item.get('data_emissao', '08/07/2026')
             contencao = item.get('acao_contencao', 'Ajuste no processo produtivo (Bloqueio preventivo de lote)')
             observacoes = item.get('observacoes', 'Alerta ultrapassou o prazo limite de tratativa. Necessário plano de ação imediato junto à engenharia.')
-            status_cor = "#EF4444"  # Vermelho para vencidos
+            status_cor = "#EF4444"
             
-            # Renderização do cabeçalho do card de forma nativa e estilizada
             st.markdown(f"""
             <div style="background-color: #FEE2E2; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #FCA5A5; border-bottom: none; font-family: 'Segoe UI', sans-serif;">
                 <div style="color: #991B1B; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px;">DETALHES DO ALERTA VENCIDO</div>
@@ -203,33 +197,23 @@ if menu_opcao == "🏠 Visão Geral":
             </div>
             """, unsafe_allow_html=True)
             
-            # Corpo do painel de auditoria de vencidos
             with st.container(border=True):
                 st.markdown(f"📁 **Produto:** &nbsp;&nbsp; `{item['produto']}`")
                 st.markdown(f"📦 **Lote:** &nbsp;&nbsp; `{item['lote']}`")
                 st.markdown(f"🏢 **Área Responsável:** &nbsp;&nbsp; `{item['area']}`")
                 st.markdown(f"👤 **Responsável:** &nbsp;&nbsp; `{item['responsavel']}`")
                 st.markdown(f"📅 **Data de Emissão:** &nbsp;&nbsp; `{data_emissao}`")
-                
                 st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
                 st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']} (Atrasado)</span>", unsafe_allow_html=True)
-                
-                # Badge de status vencido fixo
                 st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>VENCIDO</span>", unsafe_allow_html=True)
-                
                 st.divider()
-                
                 st.markdown("⚠️ **Ação de Contenção Exigida:**")
                 st.caption(contencao)
-                
                 st.markdown("🚨 **Histórico / Observações de Atraso:**")
                 st.error(observacoes)
-                
-                # Botão de visualização do histórico
                 if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
                     st.info("💡 Redirecionando para aba 'Relatórios' para visualização do histórico de atrasos.")
         else:
-            # Caso não haja nenhum vencido (vencidos == 0)
             st.markdown("""
             <div style="background-color: #D1FAE5; padding: 25px; border-radius: 12px; border: 1px solid #34D399; text-align: center; font-family: 'Segoe UI', sans-serif;">
                 <span style="font-size: 40px;">🎉</span>
@@ -238,37 +222,127 @@ if menu_opcao == "🏠 Visão Geral":
             </div>
             """, unsafe_allow_html=True)
 
+    # ==========================================================
+    # ====== SESSÃO DE GRÁFICOS ATUALIZADA (IDÊNTICA À FOTO) ===
+    # ==========================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
     g_col1, g_col2, g_col3, g_col4 = st.columns(4)
 
+    # 1. GRÁFICO: ALERTAS POR ÁREA (Rosca com rótulo externo "Qtd (Porcentagem)")
     with g_col1:
+        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if area_dist:
-            fig1 = px.pie(names=list(area_dist.keys()), values=list(area_dist.values()), hole=0.5, title="ALERTAS POR ÁREA", color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig1.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=230, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
-            st.plotly_chart(fig1, use_container_width=True)
+            labels_area = list(area_dist.keys())
+            values_area = list(area_dist.values())
+            
+            fig1 = go.Figure(data=[go.Pie(
+                labels=labels_area, 
+                values=values_area, 
+                hole=0.5,
+                textinfo='label+value+percent',
+                textposition='outside', # Linhas apontando para fora da borda
+                insidetextorientation='radial',
+                showlegend=False # Esconde a legenda lateral poluída como na foto
+            )])
+            fig1.update_layout(
+                title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
+                margin=dict(l=30, r=30, t=50, b=30), 
+                height=260,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2. GRÁFICO: ALERTAS POR STATUS (Rosca com Legenda limpa "Qtd (Porcentagem)")
     with g_col2:
+        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if status_dist:
-            fig2 = px.pie(names=list(status_dist.keys()), values=list(status_dist.values()), hole=0.5, title="ALERTAS POR STATUS", color_discrete_sequence=px.colors.qualitative.Safe)
-            fig2.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=230, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5))
-            st.plotly_chart(fig2, use_container_width=True)
+            labels_status = list(status_dist.keys())
+            values_status = list(status_dist.values())
+            
+            # Formata a legenda para mostrar "Status - Qtd (Porcentagem)" como na foto
+            total_status = sum(values_status)
+            legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(labels_status, values_status)]
+            
+            fig2 = go.Figure(data=[go.Pie(
+                labels=legenda_formatada, 
+                values=values_status, 
+                hole=0.5,
+                textinfo='none', # Sem textos poluindo a rosca
+                showlegend=True
+            )])
+            fig2.update_layout(
+                title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
+                margin=dict(l=10, r=10, t=50, b=10), 
+                height=260,
+                legend=dict(orientation="v", verticalalignment="middle", x=0.85, y=0.5, font=dict(size=10)),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 3. GRÁFICO: ALERTAS POR TIPO DE DEFEITO (Barras horizontais com valor na frente)
     with g_col3:
+        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if defeito_dist:
-            fig3 = px.bar(x=list(defeito_dist.values()), y=list(defeito_dist.keys()), orientation='h', title="ALERTAS POR DEFEITO", color_discrete_sequence=['#0E4687'])
-            fig3.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=230, xaxis_title=None, yaxis_title=None)
-            st.plotly_chart(fig3, use_container_width=True)
+            # Ordena do menor para o maior para a barra maior ficar no topo
+            df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
+            
+            fig3 = go.Figure(go.Bar(
+                x=df_def['Qtd'],
+                y=df_def['Defeito'],
+                orientation='h',
+                marker_color='#0E4687',
+                text=df_def['Qtd'], # Adiciona a quantidade como texto
+                textposition='outside', # Força o texto a ficar na frente da barra
+                textfont=dict(size=11, color='#374151', weight='bold')
+            ))
+            fig3.update_layout(
+                title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
+                margin=dict(l=10, r=30, t=50, b=10), 
+                height=260,
+                xaxis=dict(showgrid=False, visible=False), # Esconde o eixo X para foco nos números da frente
+                yaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 4. GRÁFICO: TEMPO MÉDIO DE FECHAMENTO (Linha limpa com valores em cima)
     with g_col4:
+        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
         if not df_tempo.empty:
-            fig4 = px.line(df_tempo, x="Mês", y="Dias", markers=True, title="MÉDIA DE FECHAMENTO", color_discrete_sequence=['#0284C7'])
-            fig4.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=230, xaxis_title=None, yaxis_title=None)
-            st.plotly_chart(fig4, use_container_width=True)
+            fig4 = go.Figure()
+            fig4.add_trace(go.Scatter(
+                x=df_tempo["Mês"], 
+                y=df_tempo["Dias"], 
+                mode='lines+markers+text',
+                text=df_tempo["Dias"], # Valores numéricos
+                textposition='top center', # Em cima dos pontos
+                textfont=dict(size=11, color='#374151', weight='bold'),
+                line=dict(color='#0284C7', width=2.5),
+                marker=dict(size=7, color='#0284C7')
+            ))
+            fig4.update_layout(
+                title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
+                margin=dict(l=20, r=20, t=50, b=10), 
+                height=260,
+                xaxis=dict(showgrid=False),
+                yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 2. TELA: NOVO ALERTA (CADASTRO) ---
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
-    st.markdown("Insira as informações abaixo para abrir uma nova ocorrência no Supabase")
     st.markdown("---")
-    
     with st.form("form_novo_alerta", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -287,11 +361,7 @@ elif menu_opcao == "➕ Novo Alerta":
             if not id_alerta or not produto or not lote or not defeito or not responsavel:
                 st.warning("⚠️ Preencha todos os campos obrigatórios!")
             else:
-                if status == "ENCERRADO":
-                    dias_restantes = 0
-                else:
-                    dias_restantes = (prazo - date.today()).days
-                    
+                dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
@@ -299,7 +369,7 @@ elif menu_opcao == "➕ Novo Alerta":
                 }
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
-                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso no Supabase!")
+                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso!")
                     st.cache_data.clear()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
@@ -307,94 +377,53 @@ elif menu_opcao == "➕ Novo Alerta":
 # --- 3. TELA: ALERTAS ABERTOS ---
 elif menu_opcao == "🔔 Alertas Abertos":
     st.title("🔔 ALERTAS EM ANDAMENTO")
-    st.markdown("Lista completa de não-conformidades monitoradas que ainda não foram solucionadas.")
     df_filtrado = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
-    
     if not df_filtrado.empty:
-        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
-        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum alerta aberto no momento.")
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
+        st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
 
-# --- 4. TELA: ALERTAS VENCIDOS (DINÂMICO) ---
+# --- 4. TELA: ALERTAS VENCIDOS ---
 elif menu_opcao == "⏰ Alertas Vencidos":
     st.title("⏰ ALERTAS VENCIDOS E EM ATRASO")
-    st.markdown("Filtro crítico operacional focado em ações com prazos de validade já expirados.")
     df_filtrado = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
-    
     if not df_filtrado.empty:
-        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
-        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
+        st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
     else:
         st.success("Excelente! Não existem alertas vencidos no momento.")
 
 # --- 5. TELA: ENCERRADOS ---
 elif menu_opcao == "✔️ Encerrados":
     st.title("✔️ HISTÓRICO DE ALERTAS ENCERRADOS")
-    st.markdown("Acompanhamento das ocorrências concluídas com sucesso pela engenharia da qualidade.")
     df_filtrado = df_alertas[df_alertas['status'] == 'ENCERRADO'].copy()
-    
     if not df_filtrado.empty:
-        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
-        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        st.dataframe(df_display.style.map(colorir_status, subset=["Status"]), use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum alerta foi movido para o status 'ENCERRADO' ainda.")
+        df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
+        st.dataframe(df_display.style.map(colorir_status, subset=["status"]), use_container_width=True, hide_index=True)
 
 # --- 6. TELA: INDICADORES ---
 elif menu_opcao == "📊 Indicadores":
     st.title("📊 PAINEL GERAL DE INDICADORES (KPIs)")
-    st.markdown("Visão estatística ampla da distribuição de defeitos e volumetria por célula de manufatura.")
-    
     col_g1, col_g2 = st.columns(2)
     with col_g1:
-        fig_ind1 = px.bar(df_alertas, x="area", color="status", title="Volume de Ocorrências por Área e Status", barmode="stack")
-        st.plotly_chart(fig_ind1, use_container_width=True)
+        st.plotly_chart(px.bar(df_alertas, x="area", color="status", title="Volume por Área", barmode="stack"), use_container_width=True)
     with col_g2:
-        fig_ind2 = px.histogram(df_alertas, x="status", title="Distribuição Geral por Status de Ação", color="status")
-        st.plotly_chart(fig_ind2, use_container_width=True)
+        st.plotly_chart(px.histogram(df_alertas, x="status", title="Distribuição por Status", color="status"), use_container_width=True)
 
 # --- 7. TELA: ANÁLISES ---
 elif menu_opcao == "📈 Análises":
     st.title("📈 ANÁLISES CRÍTICAS E PARETO")
-    st.markdown("Ferramentas estatísticas detalhadas para identificação de causas raiz recorrentes.")
-    
-    # Pareto de Defeitos
     df_pareto = df_alertas["defeito"].value_counts().reset_index()
     df_pareto.columns = ["Defeito", "Qtd"]
     df_pareto["% Acumulada"] = (df_pareto["Qtd"].cumsum() / df_pareto["Qtd"].sum()) * 100
-    
     fig_pareto = go.Figure()
     fig_pareto.add_trace(go.Bar(x=df_pareto["Defeito"], y=df_pareto["Qtd"], name="Quantidade", marker_color="#0E4687"))
     fig_pareto.add_trace(go.Scatter(x=df_pareto["Defeito"], y=df_pareto["% Acumulada"], name="% Acumulada", yaxis="y2", line=dict(color="#EF4444"), mode="lines+markers"))
-    
-    fig_pareto.update_layout(
-        title="Diagrama de Pareto: Principais Causas de Defeito",
-        yaxis=dict(title="Quantidade de Alertas"),
-        yaxis2=dict(title="% Acumulada", overlaying="y", side="right", range=[0, 105])
-    )
+    fig_pareto.update_layout(title="Diagrama de Pareto", yaxis=dict(title="Qtd"), yaxis2=dict(title="% Acumulada", overlaying="y", side="right", range=[0, 105]))
     st.plotly_chart(fig_pareto, use_container_width=True)
 
-# --- 8. TELA: RELATÓRIOS (EXPORTAÇÃO DE DADOS) ---
+# --- 8. TELA: RELATÓRIOS ---
 elif menu_opcao == "📄 Relatórios":
     st.title("📄 EXTRAÇÃO E EMISSÃO DE RELATÓRIOS")
-    st.markdown("Área destinada para auditorias e exportação de dados brutos das ocorrências.")
-    st.markdown("---")
-    
     st.dataframe(df_alertas, use_container_width=True, hide_index=True)
-    
-    @st.cache_data
-    def converter_csv(df_dados):
-        return df_dados.to_csv(index=False).encode('utf-8')
-        
-    csv_data = converter_csv(df_alertas)
-    
-    st.download_button(
-        label="📥 Exportar Base de Dados Completa (CSV)",
-        data=csv_data,
-        file_name=f"relatorio_alertas_qualidade_{date.today().strftime('%d_%m_%Y')}.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
+    csv_data = df_alertas.to_csv(index=False).encode('utf-8')
+    st.download_button(label="📥 Exportar Base Completa (CSV)", data=csv_data, file_name="relatorio_alertas.csv", mime="text/csv", use_container_width=True)
