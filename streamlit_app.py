@@ -29,7 +29,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. Conexão Segura com o Supabase
+# 1. Conexão Secura com o Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -104,7 +104,7 @@ with st.sidebar:
         "Navegação",
         [
             "🏠 Visão Geral", 
-            "➕ Inserir Tratativa", # O novo passo solicitado
+            "➕ Inserir Tratativa", 
             "➕ Novo Alerta",
             "🔔 Alertas Abertos", 
             "⏰ Alertas Vencidos", 
@@ -129,7 +129,6 @@ if menu_opcao == "🏠 Visão Geral":
     st.title("GESTÃO DE ALERTAS DE QUALIDADE")
     st.markdown("---")
 
-    # KPIs superiores
     total_alertas = len(df_alertas)
     abertos = len(df_alertas[df_alertas['status'] != 'ENCERRADO'])
     vencidos = len(df_alertas[df_alertas['status'] == 'VENCIDO'])
@@ -144,7 +143,6 @@ if menu_opcao == "🏠 Visão Geral":
     with kpi5: st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{percentual_prazo:.1f}%</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-
     st.markdown("### ALERTAS EM ABERTO")
     col_tabela, col_detalhes = st.columns([3, 1.4])
 
@@ -153,7 +151,6 @@ if menu_opcao == "🏠 Visão Geral":
         if not df_abertos.empty:
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-            
             alerta_selecionado = st.selectbox("Selecione uma AQ na lista para detalhar:", df_display["Nº AQ"].tolist())
             st.dataframe(df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"]), use_container_width=True, hide_index=True)
         else:
@@ -164,7 +161,6 @@ if menu_opcao == "🏠 Visão Geral":
         if alerta_selecionado:
             item = df_alertas[df_alertas['id'] == alerta_selecionado].iloc[0]
             data_emissao = item.get('data_emissao', '08/07/2026')
-            contencao = item.get('acao_contencao', 'Ajuste no processo produtivo')
             observacoes = item.get('observacoes', 'Nenhum plano de ação inserido.')
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
@@ -186,13 +182,8 @@ if menu_opcao == "🏠 Visão Geral":
                 st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']}</span>", unsafe_allow_html=True)
                 st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>{item['status']}</span>", unsafe_allow_html=True)
                 st.divider()
-                st.markdown("🔔 **Ação de Contenção:**")
-                st.caption(contencao)
-                st.markdown("📣 **Tratativas / Observações:**")
+                st.markdown("📣 **Tratativas, Ações e Observações:**")
                 st.info(observacoes)
-                
-                if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
-                    st.info("Acesse as abas específicas para relatórios completos.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -231,7 +222,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================
-# ====== 2. TELA: NOVA PÁGINA "➕ INSERIR TRATATIVA" ======
+# ====== 2. TELA: PÁGINA "➕ INSERIR TRATATIVA" CORRIGIDA ======
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
     st.title("➕ REGISTRAR PLANO DE TRATATIVAS E RESOLUÇÃO")
@@ -240,57 +231,54 @@ elif menu_opcao == "➕ Inserir Tratativa":
     
     lista_aqs = df_alertas["id"].tolist()
     aq_selecionada = st.selectbox("Selecione qual AQ você deseja aplicar a tratativa:", lista_aqs)
-    
     item_aq = df_alertas[df_alertas['id'] == aq_selecionada].iloc[0]
     
     st.info(f"🔎 **AQ Selecionada:** {item_aq['id']} | **Produto:** {item_aq['produto']} | **Defeito:** {item_aq['defeito']}")
-    
     st.markdown("---")
     
     # PASSO 1: Análise do Responsável
     st.markdown("### 👤 PASSO 1: Análise do Responsável Técnico")
     confirmar_analise = st.checkbox("Desejo confirmar o OK mostrando que fiz a análise do alerta emitido.")
     
-    acoes_definidas = st.text_area("Adicionar Ações Definidas (Correção do problema encontrado conforme Alerta):", 
-                                   value=item_aq.get('acao_contencao', ''))
-    
-    responsavel_implementar = st.text_input("Quem vai ser o Responsável para implementar esta ação?", 
-                                            value=item_aq.get('responsavel', ''))
+    acoes_definidas = st.text_area("Adicionar Ações Definidas (Correção do problema encontrado conforme Alerta):")
+    responsavel_implementar = st.text_input("Quem vai ser o Responsável para implementar esta ação?", value=item_aq.get('responsavel', ''))
     
     st.markdown("---")
     
     # PASSO 2: Validação da Qualidade
     st.markdown("### 🛡️ PASSO 2: Validação da Engenharia da Qualidade")
     confirmar_qualidade = st.checkbox("Desejo confirmar o OK mostrando que foi validado e corrigido com eficácia.")
-    
     encerrar_processo = st.checkbox("Marcar como ENCERRADO pela Qualidade (Finalizar Tratativa)")
     
-    st.markdown("br", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
     if st.button("💾 GRAVAR E ATUALIZAR TRATATIVA NO SUPABASE", type="primary", use_container_width=True):
-        # Monta a string de observações estruturando tudo que foi digitado
-        historico_obs = f"ANÁLISE OK. Ações Definidas: {acoes_definidas}. Responsável Execução: {responsavel_implementar}."
+        # Monta a string limpa concatenando as informações
+        status_analise = "ANÁLISE OK" if confirmar_analise else "EM ANÁLISE"
+        status_qualidade = "VALIDADO PELA QUALIDADE" if confirmar_qualidade else "AGUARDANDO VALIDAÇÃO"
+        
+        texto_historico = f"[{status_analise}] Ações: {acoes_definidas}. Responsável Implementar: {responsavel_implementar}. [{status_qualidade}]."
         
         status_final = item_aq['status']
         if encerrar_processo or confirmar_qualidade:
             status_final = "ENCERRADO"
             
+        # Atualizamos APENAS colunas que temos certeza absoluta que existem: observacoes, responsavel e status
         dados_atualizados = {
-            "observacoes": historico_obs,
+            "observacoes": texto_historico,
             "responsavel": responsavel_implementar,
-            "acao_contencao": acoes_definidas,
             "status": status_final
         }
         
         try:
             supabase.table("alertas").update(dados_atualizados).eq("id", aq_selecionada).execute()
-            st.success(f"🎉 Tratativa da AQ {aq_selecionada} atualizada no banco de dados!")
+            st.success(f"🎉 Tratativa da AQ {aq_selecionada} gravada e salva com sucesso!")
             st.cache_data.clear()
             st.rerun()
         except Exception as e:
             st.error(f"Erro ao salvar tratativa: {e}")
 
-# --- OUTRAS TELAS ANTERIORES DO MENU ---
+# --- OUTRAS TELAS ---
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
     with st.form("form_novo", clear_on_submit=True):
