@@ -26,15 +26,6 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
-        
-        /* Estilização para envelopar os gráficos em cards brancos como na imagem */
-        .graph-card {
-            background-color: #FFFFFF;
-            padding: 10px;
-            border-radius: 12px;
-            border: 1px solid #E5E7EB;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -222,118 +213,116 @@ if menu_opcao == "🏠 Visão Geral":
             </div>
             """, unsafe_allow_html=True)
 
-    # --- INDICADORES GRÁFICOS REESTRUTURADOS ---
+    # ==========================================================
+    # ====== SESSÃO DE GRÁFICOS ALINHADA COM CONTAINER DE BORDA =
+    # ==========================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
     g_col1, g_col2, g_col3, g_col4 = st.columns(4)
 
     # 1. ALERTAS POR ÁREA
     with g_col1:
-        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
-        if area_dist:
-            labels_area = list(area_dist.keys())
-            values_area = list(area_dist.values())
-            
-            fig1 = go.Figure(data=[go.Pie(
-                labels=labels_area, 
-                values=values_area, 
-                hole=0.5,
-                textinfo='label+value+percent',
-                textposition='outside',
-                insidetextorientation='radial',
-                showlegend=False
-            )])
-            fig1.update_layout(
-                title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
-                margin=dict(l=30, r=30, t=50, b=30), 
-                height=260,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True): # Borda nativa corporativa alinhada
+            if area_dist:
+                labels_area = list(area_dist.keys())
+                values_area = list(area_dist.values())
+                
+                fig1 = go.Figure(data=[go.Pie(
+                    labels=labels_area, 
+                    values=values_area, 
+                    hole=0.5,
+                    textinfo='label+value+percent',
+                    textposition='outside',
+                    insidetextorientation='radial',
+                    showlegend=False
+                )])
+                fig1.update_layout(
+                    title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
+                    margin=dict(l=30, r=30, t=50, b=30), 
+                    height=250,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
 
-    # 2. ALERTAS POR STATUS (Ajustado Valign aqui)
+    # 2. ALERTAS POR STATUS
     with g_col2:
-        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
-        if status_dist:
-            labels_status = list(status_dist.keys())
-            values_status = list(status_dist.values())
-            
-            total_status = sum(values_status)
-            legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(labels_status, values_status)]
-            
-            fig2 = go.Figure(data=[go.Pie(
-                labels=legenda_formatada, 
-                values=values_status, 
-                hole=0.5,
-                textinfo='none', 
-                showlegend=True
-            )])
-            fig2.update_layout(
-                title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
-                margin=dict(l=10, r=10, t=50, b=10), 
-                height=260,
-                legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=10)),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if status_dist:
+                labels_status = list(status_dist.keys())
+                values_status = list(status_dist.values())
+                
+                total_status = sum(values_status)
+                legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(labels_status, values_status)]
+                
+                fig2 = go.Figure(data=[go.Pie(
+                    labels=legenda_formatada, 
+                    values=values_status, 
+                    hole=0.5,
+                    textinfo='none', 
+                    showlegend=True
+                )])
+                fig2.update_layout(
+                    title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
+                    margin=dict(l=10, r=10, t=50, b=10), 
+                    height=250,
+                    legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=9)),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
     # 3. ALERTAS POR TIPO DE DEFEITO
     with g_col3:
-        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
-        if defeito_dist:
-            df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
-            
-            fig3 = go.Figure(go.Bar(
-                x=df_def['Qtd'],
-                y=df_def['Defeito'],
-                orientation='h',
-                marker_color='#0E4687',
-                text=df_def['Qtd'], 
-                textposition='outside', 
-                textfont=dict(size=11, color='#374151', weight='bold')
-            ))
-            fig3.update_layout(
-                title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
-                margin=dict(l=10, r=30, t=50, b=10), 
-                height=260,
-                xaxis=dict(showgrid=False, visible=False), 
-                yaxis=dict(showgrid=False, tickfont=dict(size=11)),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if defeito_dist:
+                df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
+                
+                fig3 = go.Figure(go.Bar(
+                    x=df_def['Qtd'],
+                    y=df_def['Defeito'],
+                    orientation='h',
+                    marker_color='#0E4687',
+                    text=df_def['Qtd'], 
+                    textposition='outside', 
+                    textfont=dict(size=11, color='#374151', weight='bold')
+                ))
+                fig3.update_layout(
+                    title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
+                    margin=dict(l=10, r=30, t=50, b=10), 
+                    height=250,
+                    xaxis=dict(showgrid=False, visible=False), 
+                    yaxis=dict(showgrid=False, tickfont=dict(size=11)),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
 
     # 4. TEMPO MÉDIO DE FECHAMENTO
     with g_col4:
-        st.markdown('<div class="graph-card">', unsafe_allow_html=True)
-        if not df_tempo.empty:
-            fig4 = go.Figure()
-            fig4.add_trace(go.Scatter(
-                x=df_tempo["Mês"], 
-                y=df_tempo["Dias"], 
-                mode='lines+markers+text',
-                text=df_tempo["Dias"], 
-                textposition='top center', 
-                textfont=dict(size=11, color='#374151', weight='bold'),
-                line=dict(color='#0284C7', width=2.5),
-                marker=dict(size=7, color='#0284C7')
-            ))
-            fig4.update_layout(
-                title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=14, color="#1E3A8A")),
-                margin=dict(l=20, r=20, t=50, b=10), 
-                height=260,
-                xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
-        st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            if not df_tempo.empty:
+                fig4 = go.Figure()
+                fig4.add_trace(go.Scatter(
+                    x=df_tempo["Mês"], 
+                    y=df_tempo["Dias"], 
+                    mode='lines+markers+text',
+                    text=df_tempo["Dias"], 
+                    textposition='top center', 
+                    textfont=dict(size=11, color='#374151', weight='bold'),
+                    line=dict(color='#0284C7', width=2.5),
+                    marker=dict(size=7, color='#0284C7')
+                ))
+                fig4.update_layout(
+                    title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
+                    margin=dict(l=20, r=20, t=50, b=10), 
+                    height=250,
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # --- 2. TELA: NOVO ALERTA (CADASTRO) ---
 elif menu_opcao == "➕ Novo Alerta":
