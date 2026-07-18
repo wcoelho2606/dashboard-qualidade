@@ -375,15 +375,27 @@ elif menu_opcao == "➕ Inserir Tratativa":
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    colunas = [col1, col2, col3, col4, col5]
+colunas = [col1, col2, col3, col4, col5]
 
-    for i, etapa in enumerate(etapas_fluxo):
+for i, etapa in enumerate(etapas_fluxo):
 
-        with colunasif etapa == etapa_atual:
-                st.success(f"✅ {etapa}")
+    with colunasif etapa == etapa_atual:
 
-            elif etapa_atual and etapas_fluxo.index(etapa) < etapas_fluxo.index(etapa_atual):
-                st.info(f"✔️ {etapa}")
+            st.success(f"✅ {etapa}")
+
+        elif (
+            etapa_atual
+            and etapas_fluxo.index(etapa)
+            < etapas_fluxo.index(etapa_atual)
+        ):
+
+            st.info(f"✔️ {etapa}")
+
+        else:
+
+            st.write(f"⚪ {etapa}")
+
+            st.write(f"⚪ {etapa}")
 
             else:
                 st.write(f"⚪ {etapa}")
