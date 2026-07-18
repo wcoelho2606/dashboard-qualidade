@@ -318,7 +318,7 @@ if menu_opcao == "🏠 Visão Geral":
 # =======================================================
 # ====== 2. TELA: PASSO INICIAL DA NOVA ABA ======
 # =======================================================
-elif menu_opcao == "Inserir Tratativa":
+elif menu_opcao == "➕ Inserir Tratativa":
     st.title("➕ INSERIR TRATATIVA DO ALERTA")
     st.markdown("---")
     
@@ -330,27 +330,7 @@ elif menu_opcao == "Inserir Tratativa":
     
     # Puxa os dados da AQ escolhida
     item_aq = df_alertas[df_alertas['id'] == aq_selecionada].iloc[0]
-    
-    # Barra Azul com os dados da AQ selecionada
     st.info(f"📋 **AQ Selecionada:** {item_aq['id']} | **Produto:** {item_aq['produto']} | **Defeito:** {item_aq['defeito']}")
-    
-    # Passo 1: Análise
-    st.markdown("### 1️⃣ Passo: Análise Técnica")
-    with st.container(border=True):
-        st.write(f"👤 **Responsável pelo Alerta:** {item_aq['responsavel']}")
-        
-        with st.form("form_passo1"):
-            # Campo de confirmação para o responsável
-            analise_ok = st.checkbox("✅ Confirmo que a análise foi realizada (Status: EM ANÁLISE)")
-            obs = st.text_area("Observações da Análise:")
-            
-            # Botão de ação
-            if st.form_submit_button("Confirmar Passo 1"):
-                if analise_ok:
-                    st.success(f"Análise confirmada pelo responsável {item_aq['responsavel']}! O status foi atualizado para: EM ANÁLISE.")
-                    st.balloons()
-                else:
-                    st.warning("Por favor, marque o checkbox para confirmar que a análise foi realizada.")
 
 # --- 3. TELA: NOVO ALERTA (CADASTRO) ---
 elif menu_opcao == "➕ Novo Alerta":
