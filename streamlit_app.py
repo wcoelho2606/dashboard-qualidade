@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada corporativa (Layout e KPIs)
+# Estilização CSS customizada corporativa (Layout, KPIs e ícones do fluxo apagados/acesos)
 st.markdown("""
     <style>
         .reportview-container { background-color: #F4F6F9; }
@@ -26,6 +26,31 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
+        
+        /* Estilo para simular os ícones acesos e apagados do fluxo */
+        .fluxo-etapa-ativa {
+            background-color: #FEF9C3;
+            border: 2px solid #EAB308;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .fluxo-etapa-concluida {
+            background-color: #ECFDF5;
+            border: 2px solid #10B981;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+        }
+        .fluxo-etapa-apagada {
+            background-color: #F3F4F6;
+            border: 2px dashed #D1D5DB;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            opacity: 0.5; /* Deixa o ícone apagado */
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -236,6 +261,67 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
+    # =========================================================================
+    # ====== NOVIDADE: FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ======
+    # =========================================================================
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### FLUXO DE TRATATIVAS")
+    
+    # Seleciona um alerta na Visão Geral para monitorar o andamento no fluxo estilo a imagem solicitada
+    lista_aqs_visao = df_alertas["id"].tolist()
+    aq_escolhida_visao = st.selectbox("Selecione o Alerta para acompanhar o Fluxo de Tratativas:", lista_aqs_visao, key="select_visao_fluxo")
+    
+    item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
+    etapa_visao = int(item_visao.get("etapa_atual", 1))
+
+    # Definição dos emojis e dados idênticos à referência solicitada
+    passos_fluxo = [
+        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": "08/07/2026\n07:15"},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": "08/07/2026\n08:40"},
+        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": "08/07/2026\n10:30"},
+        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": "09/07/2026\n09:10"},
+        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": "-"},
+        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": "-"}
+    ]
+
+    cols_f = st.columns(6)
+    for idx, p in enumerate(passos_fluxo):
+        with cols_f[idx]:
+            # Lógica dos emojis acesos, ativos ou apagados conforme a etapa atual
+            if p["num"] < etapa_visao:
+                # Concluído (Aceso com verde)
+                st.markdown(f"""
+                    <div class="fluxo-etapa-concluida">
+                        <div style="font-size: 24px;">✅</div>
+                        <div style="font-weight: bold; font-size: 12px; color: #065F46;">{p['num']}. {p['titulo']}</div>
+                        <div style="font-size: 10px; color: #047857;">{p['sub']}</div>
+                        <hr style="margin: 5px 0;">
+                        <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+            elif p["num"] == etapa_visao:
+                # Atual / Em andamento (Aceso com amarelo/destaque)
+                st.markdown(f"""
+                    <div class="fluxo-etapa-ativa">
+                        <div style="font-size: 24px;">⏳</div>
+                        <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
+                        <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
+                        <hr style="margin: 5px 0;">
+                        <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Futuro / Apagado (Cinza com opacidade reduzida)
+                st.markdown(f"""
+                    <div class="fluxo-etapa-apagada">
+                        <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
+                        <div style="font-weight: bold; font-size: 12px; color: #6B7280;">{p['num']}. {p['titulo']}</div>
+                        <div style="font-size: 10px; color: #9CA3AF;">{p['sub']}</div>
+                        <hr style="margin: 5px 0;">
+                        <small style="color: #9CA3AF; white-space: pre-line;">-</small>
+                    </div>
+                """, unsafe_allow_html=True)
+
 # =======================================================
 # ====== 2. TELA: INSERIR TRATATIVA (FLUXO DE ETAPAS) ====
 # =======================================================
@@ -308,9 +394,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 st.rerun()
         else:
             st.success("🎉 Este alerta já concluiu o fluxo e está Encerrado!")
-            # BOTÃO DE REABERTURA CASO A AÇÃO NÃO TENHA SIDO EFICAZ
             if st.button("🔄 Reabrir Alerta (Voltar para Análise)", use_container_width=True):
-                # Recalcula os dias restantes com base na data de hoje para o status correto
                 dias_atuais = (item_aq['prazo'] - date.today()).days
                 status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
                 
