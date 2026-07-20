@@ -42,7 +42,7 @@ except Exception as e:
     st.error("Erro ao conectar ao banco de dados. Verifique as credenciais.")
     st.stop()
 
-# 2. Carregar e processar dados em tempo real (Sem cache estático para evitar atrasos)
+# 2. Carregar e processar dados em tempo real
 def carregar_dados():
     try:
         resposta = supabase.table("alertas").select("*").execute()
@@ -175,9 +175,7 @@ if menu_opcao == "🏠 Visão Geral":
         if not df_vencidos_detalhe.empty:
             alerta_vencido_selecionado = st.selectbox("⚠️ Selecione a AQ Vencida para auditar:", df_vencidos_detalhe["id"].tolist())
             item = df_vencidos_detalhe[df_vencidos_detalhe['id'] == alerta_vencido_selecionado].iloc[0]
-            data_emissao = item.get('data_emissao', '08/07/2026')
             contencao = item.get('acao_contencao', 'Ajuste no processo produtivo (Bloqueio preventivo de lote)')
-            observacoes = item.get('observacoes', 'Alerta ultrapassou o prazo limite de tratativa.')
             status_cor = "#EF4444"
             
             st.markdown(f"""
@@ -294,7 +292,6 @@ elif menu_opcao == "➕ Inserir Tratativa":
             if st.button("🚀 Avançar Etapa Diretamente", use_container_width=True, type="primary"):
                 nova_etapa = etapa_atual + 1
                 
-                # Se for para a etapa 6, encerra automaticamente e zera os dias restantes
                 if nova_etapa == 6:
                     dados_update = {
                         "etapa_atual": 6,
@@ -306,13 +303,25 @@ elif menu_opcao == "➕ Inserir Tratativa":
                         "etapa_atual": nova_etapa
                     }
                 
-                # Atualiza diretamente no Supabase
                 supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
-                
                 st.success(f"Alerta {aq_selecionada} atualizado com sucesso!")
                 st.rerun()
         else:
             st.success("🎉 Este alerta já concluiu o fluxo e está Encerrado!")
+            # BOTÃO DE REABERTURA CASO A AÇÃO NÃO TENHA SIDO EFICAZ
+            if st.button("🔄 Reabrir Alerta (Voltar para Análise)", use_container_width=True):
+                # Recalcula os dias restantes com base na data de hoje para o status correto
+                dias_atuais = (item_aq['prazo'] - date.today()).days
+                status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
+                
+                supabase.table("alertas").update({
+                    "etapa_atual": 2,
+                    "status": status_reaberto,
+                    "dias_restantes": dias_atuais
+                }).eq("id", aq_selecionada).execute()
+                
+                st.warning(f"Alerta {aq_selecionada} reaberto e retornado para a Etapa 2 (Em Análise)!")
+                st.rerun()
 
         acao_atual = item_aq.get("acao_contencao") or ""
         nova_acao = st.text_area("Ação de Contenção / Observações:", value=acao_atual)
