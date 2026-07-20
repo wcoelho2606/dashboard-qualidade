@@ -272,10 +272,9 @@ if menu_opcao == "🏠 Visão Geral":
     item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
     etapa_visao = int(item_visao.get("etapa_atual", 1))
 
-    # Função auxiliar para formatar as datas salvas no banco
     def formatar_data_banco(coluna_db):
         val = item_visao.get(coluna_db)
-        if pd.notnull(val) and val != "":
+        if pd.notnull(val) and val != "" and val is not None:
             try:
                 dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
                 return dt_obj.strftime('%d/%m/%Y\n%H:%M')
@@ -383,7 +382,6 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 nova_etapa = etapa_atual + 1
                 agora_iso = datetime.now().isoformat()
                 
-                # Monta o dicionário de atualização gravando a data exata da nova etapa
                 dados_update = {
                     "etapa_atual": nova_etapa,
                     f"data_etapa_{nova_etapa}": agora_iso
@@ -402,11 +400,11 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 dias_atuais = (item_aq['prazo'] - date.today()).days
                 status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
                 
+                # Atualização corrigida para reabertura sem enviar valores nulos problemáticos
                 supabase.table("alertas").update({
                     "etapa_atual": 2,
                     "status": status_reaberto,
-                    "dias_restantes": dias_atuais,
-                    "data_etapa_6": None # Limpa a data de encerramento ao reabrir
+                    "dias_restantes": dias_atuais
                 }).eq("id", aq_selecionada).execute()
                 
                 st.warning(f"Alerta {aq_selecionada} reaberto e retornado para a Etapa 2!")
