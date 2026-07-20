@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from supabase import create_client
 
 # Configuração da página executiva
@@ -261,7 +261,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== FLUXO DE TRATATIVAS CORRIGIDO NA TELA INICIAL (VISÃO GERAL) ======
+    # ====== FLUXO DE TRATATIVAS COM DATAS REAIS SALVAS NO SUPABASE ==========
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
@@ -270,30 +270,31 @@ if menu_opcao == "🏠 Visão Geral":
     aq_escolhida_visao = st.selectbox("Selecione o Alerta para acompanhar o Fluxo de Tratativas:", lista_aqs_visao, key="select_visao_fluxo")
     
     item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
-    etapa_visao = int(item_visao.get("etpan_atual", item_visao.get("etapa_atual", 1)))
+    etapa_visao = int(item_visao.get("etapa_atual", 1))
 
-    # Base de datas dinâmicas para preencher o fluxo com perfeição corporativa
-    dt_base = item_visao.get('prazo') - timedelta(days=5) if pd.notnull(item_visao.get('prazo')) else date.today()
-    dt_str1 = dt_base.strftime('%d/%m/%Y\n07:15')
-    dt_str2 = dt_base.strftime('%d/%m/%Y\n08:40')
-    dt_str3 = dt_base.strftime('%d/%m/%Y\n10:30')
-    dt_str4 = (dt_base + timedelta(days=1)).strftime('%d/%m/%Y\n09:10')
-    dt_str5 = (dt_base + timedelta(days=2)).strftime('%d/%m/%Y\n14:00') if etapa_visao >= 5 else "-"
-    dt_str6 = (dt_base + timedelta(days=3)).strftime('%d/%m/%Y\n16:30') if etapa_visao == 6 else "-"
+    # Função auxiliar para formatar as datas salvas no banco
+    def formatar_data_banco(coluna_db):
+        val = item_visao.get(coluna_db)
+        if pd.notnull(val) and val != "":
+            try:
+                dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
+                return dt_obj.strftime('%d/%m/%Y\n%H:%M')
+            except:
+                return str(val)
+        return "-"
 
     passos_fluxo = [
-        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": dt_str1},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": dt_str2},
-        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": dt_str3},
-        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": dt_str4},
-        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": dt_str5},
-        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": dt_str6}
+        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1')},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": formatar_data_banco('data_etapa_2')},
+        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": formatar_data_banco('data_etapa_3')},
+        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": formatar_data_banco('data_etapa_4')},
+        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_5')},
+        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
     ]
 
     cols_f = st.columns(6)
     for idx, p in enumerate(passos_fluxo):
         with cols_f[idx]:
-            # Se a etapa for 6 (Encerrado), todas as 6 caixas ficam concluídas (verdes)
             if etapa_visao == 6 or p["num"] < etapa_visao:
                 st.markdown(f"""
                     <div class="fluxo-etapa-concluida">
@@ -311,7 +312,7 @@ if menu_opcao == "🏠 Visão Geral":
                         <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
                         <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
                         <hr style="margin: 5px 0;">
-                        <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
+                        <small style="color: #374151; white-space: pre-line;">{p['data'] if p['data'] != '-' else 'Pendente'}</small>
                     </div>
                 """, unsafe_allow_html=True)
             else:
@@ -380,20 +381,20 @@ elif menu_opcao == "➕ Inserir Tratativa":
         if etapa_atual < 6:
             if st.button("🚀 Avançar Etapa Diretamente", use_container_width=True, type="primary"):
                 nova_etapa = etapa_atual + 1
+                agora_iso = datetime.now().isoformat()
+                
+                # Monta o dicionário de atualização gravando a data exata da nova etapa
+                dados_update = {
+                    "etapa_atual": nova_etapa,
+                    f"data_etapa_{nova_etapa}": agora_iso
+                }
                 
                 if nova_etapa == 6:
-                    dados_update = {
-                        "etapa_atual": 6,
-                        "status": "ENCERRADO",
-                        "dias_restantes": 0
-                    }
-                else:
-                    dados_update = {
-                        "etapa_atual": nova_etapa
-                    }
+                    dados_update["status"] = "ENCERRADO"
+                    dados_update["dias_restantes"] = 0
                 
                 supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
-                st.success(f"Alerta {aq_selecionada} atualizado com sucesso!")
+                st.success(f"Alerta {aq_selecionada} avançado para a etapa {nova_etapa} com sucesso!")
                 st.rerun()
         else:
             st.success("🎉 Este alerta já concluiu o fluxo e está Encerrado!")
@@ -404,10 +405,11 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 supabase.table("alertas").update({
                     "etapa_atual": 2,
                     "status": status_reaberto,
-                    "dias_restantes": dias_atuais
+                    "dias_restantes": dias_atuais,
+                    "data_etapa_6": None # Limpa a data de encerramento ao reabrir
                 }).eq("id", aq_selecionada).execute()
                 
-                st.warning(f"Alerta {aq_selecionada} reaberto e retornado para a Etapa 2 (Em Análise)!")
+                st.warning(f"Alerta {aq_selecionada} reaberto e retornado para a Etapa 2!")
                 st.rerun()
 
         acao_atual = item_aq.get("acao_contencao") or ""
@@ -443,11 +445,17 @@ elif menu_opcao == "➕ Novo Alerta":
             else:
                 dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
                 etapa_inicial = 6 if status == "ENCERRADO" else 1
+                agora_iso = datetime.now().isoformat()
+                
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
-                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial
+                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
+                    "data_etapa_1": agora_iso
                 }
+                if etapa_inicial == 6:
+                    novo_registro["data_etapa_6"] = agora_iso
+
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
                     st.success(f"🎉 Alerta {id_alerta} salvo com sucesso!")
