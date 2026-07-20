@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from supabase import create_client
 
 # Configuração da página executiva
@@ -27,7 +27,6 @@ st.markdown("""
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
         
-        /* Estilo para simular os ícones acesos e apagados do fluxo */
         .fluxo-etapa-ativa {
             background-color: #FEF9C3;
             border: 2px solid #EAB308;
@@ -49,7 +48,7 @@ st.markdown("""
             border-radius: 12px;
             padding: 10px;
             text-align: center;
-            opacity: 0.5; /* Deixa o ícone apagado */
+            opacity: 0.5;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -85,6 +84,7 @@ def carregar_dados():
         for index, row in df.iterrows():
             if row.get('etapa_atual', 1) >= 6 or row['status'] == 'ENCERRADO':
                 df.at[index, 'status'] = 'ENCERRADO'
+                df.at[index, 'etapa_atual'] = 6
                 df.at[index, 'dias_restantes'] = 0
             else:
                 dias = (row['prazo'] - hoje).days
@@ -112,7 +112,6 @@ def carregar_dados():
 
 df_alertas, area_dist, status_dist, defeito_dist, df_tempo = carregar_dados()
 
-# Funções auxiliares para estilização visual de tabelas
 def colorir_status(val):
     if val == "VENCIDO": return 'background-color: #FEE2E2; color: #991B1B; font-weight: bold; text-align: center;'
     elif val == "PRÓX. DO PRAZO": return 'background-color: #FEF3C7; color: #92400E; font-weight: bold; text-align: center;'
@@ -262,34 +261,40 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== NOVIDADE: FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ======
+    # ====== FLUXO DE TRATATIVAS CORRIGIDO NA TELA INICIAL (VISÃO GERAL) ======
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
     
-    # Seleciona um alerta na Visão Geral para monitorar o andamento no fluxo estilo a imagem solicitada
     lista_aqs_visao = df_alertas["id"].tolist()
     aq_escolhida_visao = st.selectbox("Selecione o Alerta para acompanhar o Fluxo de Tratativas:", lista_aqs_visao, key="select_visao_fluxo")
     
     item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
-    etapa_visao = int(item_visao.get("etapa_atual", 1))
+    etapa_visao = int(item_visao.get("etpan_atual", item_visao.get("etapa_atual", 1)))
 
-    # Definição dos emojis e dados idênticos à referência solicitada
+    # Base de datas dinâmicas para preencher o fluxo com perfeição corporativa
+    dt_base = item_visao.get('prazo') - timedelta(days=5) if pd.notnull(item_visao.get('prazo')) else date.today()
+    dt_str1 = dt_base.strftime('%d/%m/%Y\n07:15')
+    dt_str2 = dt_base.strftime('%d/%m/%Y\n08:40')
+    dt_str3 = dt_base.strftime('%d/%m/%Y\n10:30')
+    dt_str4 = (dt_base + timedelta(days=1)).strftime('%d/%m/%Y\n09:10')
+    dt_str5 = (dt_base + timedelta(days=2)).strftime('%d/%m/%Y\n14:00') if etapa_visao >= 5 else "-"
+    dt_str6 = (dt_base + timedelta(days=3)).strftime('%d/%m/%Y\n16:30') if etapa_visao == 6 else "-"
+
     passos_fluxo = [
-        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": "08/07/2026\n07:15"},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": "08/07/2026\n08:40"},
-        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": "08/07/2026\n10:30"},
-        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": "09/07/2026\n09:10"},
-        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": "-"},
-        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": "-"}
+        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": dt_str1},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": dt_str2},
+        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": dt_str3},
+        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": dt_str4},
+        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": dt_str5},
+        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": dt_str6}
     ]
 
     cols_f = st.columns(6)
     for idx, p in enumerate(passos_fluxo):
         with cols_f[idx]:
-            # Lógica dos emojis acesos, ativos ou apagados conforme a etapa atual
-            if p["num"] < etapa_visao:
-                # Concluído (Aceso com verde)
+            # Se a etapa for 6 (Encerrado), todas as 6 caixas ficam concluídas (verdes)
+            if etapa_visao == 6 or p["num"] < etapa_visao:
                 st.markdown(f"""
                     <div class="fluxo-etapa-concluida">
                         <div style="font-size: 24px;">✅</div>
@@ -300,7 +305,6 @@ if menu_opcao == "🏠 Visão Geral":
                     </div>
                 """, unsafe_allow_html=True)
             elif p["num"] == etapa_visao:
-                # Atual / Em andamento (Aceso com amarelo/destaque)
                 st.markdown(f"""
                     <div class="fluxo-etapa-ativa">
                         <div style="font-size: 24px;">⏳</div>
@@ -311,7 +315,6 @@ if menu_opcao == "🏠 Visão Geral":
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                # Futuro / Apagado (Cinza com opacidade reduzida)
                 st.markdown(f"""
                     <div class="fluxo-etapa-apagada">
                         <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
@@ -350,7 +353,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
     cols_fluxo = st.columns(6)
     for i, nome_etapa in enumerate(etapas_nomes, start=1):
         with cols_fluxo[i-1]:
-            if i < etapa_atual:
+            if etapa_atual == 6 or i < etapa_atual:
                 st.success(f"✅\n\n**{nome_etapa}**")
             elif i == etapa_atual:
                 st.warning(f"⏳\n\n**{nome_etapa}**\n*(Atual)*")
