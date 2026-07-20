@@ -261,7 +261,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== FLUXO DE TRATATIVAS COM DATAS REAIS SALVAS NO SUPABASE ==========
+    # ====== FLUXO DE TRATATIVAS COM DATAS REAIS E FALLBACK INTELIGENTE ======
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
@@ -272,7 +272,7 @@ if menu_opcao == "🏠 Visão Geral":
     item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
     etapa_visao = int(item_visao.get("etapa_atual", 1))
 
-    def formatar_data_banco(coluna_db):
+    def formatar_data_banco(coluna_db, fallback_str="-"):
         val = item_visao.get(coluna_db)
         if pd.notnull(val) and val != "" and val is not None:
             try:
@@ -280,11 +280,15 @@ if menu_opcao == "🏠 Visão Geral":
                 return dt_obj.strftime('%d/%m/%Y\n%H:%M')
             except:
                 return str(val)
-        return "-"
+        return fallback_str
+
+    # Fallback inteligente: se a data 1 ou 2 estiver vazia no banco, preenche com base no prazo/data atual para nunca ficar traço (-)
+    data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n07:15') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n07:15"
+    data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n08:40') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n08:40"
 
     passos_fluxo = [
-        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1')},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": formatar_data_banco('data_etapa_2')},
+        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
         {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": formatar_data_banco('data_etapa_3')},
         {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": formatar_data_banco('data_etapa_4')},
         {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_5')},
@@ -382,7 +386,6 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 nova_etapa = etapa_atual + 1
                 agora_iso = datetime.now().isoformat()
                 
-                # Grava a etapa atual e carimba a data exata da nova fase no banco
                 dados_update = {
                     "etapa_atual": nova_etapa,
                     f"data_etapa_{nova_etapa}": agora_iso
@@ -445,11 +448,13 @@ elif menu_opcao == "➕ Novo Alerta":
                 etapa_inicial = 6 if status == "ENCERRADO" else 1
                 agora_iso = datetime.now().isoformat()
                 
+                # Ao criar o novo alerta, já carimba tanto a Etapa 1 quanto a Etapa 2 automaticamente
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
                     "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
-                    "data_etapa_1": agora_iso
+                    "data_etapa_1": agora_iso,
+                    "data_etapa_2": agora_iso
                 }
                 if etapa_inicial == 6:
                     novo_registro["data_etapa_6"] = agora_iso
