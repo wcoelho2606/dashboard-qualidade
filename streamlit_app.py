@@ -29,7 +29,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. Conexão Secura com o Supabase
+# 1. Conexão Segura com o Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -53,6 +53,10 @@ def carregar_dados():
         hoje = date.today()
         df['prazo'] = pd.to_datetime(df['prazo']).dt.date
         
+        # Garante que a coluna etapa_atual exista no DataFrame
+        if 'etapa_atual' not in df.columns:
+            df['etapa_atual'] = 1
+
         # ====== RECALCULO DINÂMICO DE PRAZOS E STATUS ======
         for index, row in df.iterrows():
             if row['status'] == 'ENCERRADO':
@@ -88,6 +92,7 @@ def colorir_status(val):
     if val == "VENCIDO": return 'background-color: #FEE2E2; color: #991B1B; font-weight: bold; text-align: center;'
     elif val == "PRÓX. DO PRAZO": return 'background-color: #FEF3C7; color: #92400E; font-weight: bold; text-align: center;'
     elif val == "EM DIA": return 'background-color: #D1FAE5; color: #065F46; font-weight: bold; text-align: center;'
+    elif val == "ENCERRADO": return 'background-color: #E0E7FF; color: #3730A3; font-weight: bold; text-align: center;'
     return 'background-color: #F3F4F6; color: #374151; text-align: center;'
 
 def colorir_dias(val):
@@ -161,7 +166,6 @@ if menu_opcao == "🏠 Visão Geral":
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         if not df_abertos.empty:
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
-            # --- LINHA CORRIGIDA ABAIXO (alinhamento ajustado) ---
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
@@ -200,8 +204,6 @@ if menu_opcao == "🏠 Visão Geral":
                 st.caption(contencao)
                 st.markdown("🚨 **Histórico / Observações de Atraso:**")
                 st.error(observacoes)
-                if st.button("VER HISTÓRICO COMPLETO", use_container_width=True, type="primary"):
-                    st.info("💡 Redirecionando para aba 'Relatórios' para visualização do histórico de atrasos.")
         else:
             st.markdown("""
             <div style="background-color: #D1FAE5; padding: 25px; border-radius: 12px; border: 1px solid #34D399; text-align: center; font-family: 'Segoe UI', sans-serif;">
@@ -316,23 +318,84 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================
-# ====== 2. TELA: PASSO INICIAL DA NOVA ABA ======
+# ====== 2. TELA: INSERIR TRATATIVA (FLUXO DE ETAPAS) ====
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
-    st.title("➕ INSERIR TRATATIVA DO ALERTA")
+    st.title("➕ FLUXO DE TRATATIVAS DOS ALERTAS")
+    st.markdown("Gerencie o andamento das etapas e avanço do status de cada alerta.")
     st.markdown("---")
     
-    # Gera a lista com os IDs de todos os alertas cadastrados
     lista_aqs = df_alertas["id"].tolist()
+    aq_selecionada = st.selectbox("Escolha o Nº da AQ para gerenciar a tratativa:", lista_aqs)
     
-    # Caixa de seleção para o usuário escolher qual Alerta vai tratar
-    aq_selecionada = st.selectbox("Escolha o Nº da AQ para preencher a tratativa:", lista_aqs)
-    
-    # Puxa os dados da AQ escolhida
     item_aq = df_alertas[df_alertas['id'] == aq_selecionada].iloc[0]
-    st.info(f"📋 **AQ Selecionada:** {item_aq['id']} | **Produto:** {item_aq['produto']} | **Defeito:** {item_aq['defeito']}")
+    etapa_atual = int(item_aq.get("etapa_atual", 1))
 
-# --- 3. TELA: NOVO ALERTA (CADASTRO) ---
+    # Exibição do Status Visual do Fluxo (6 Etapas)
+    st.markdown("### 🔄 Andamento do Fluxo de Tratativas")
+    etapas_nomes = [
+        "1. Alerta Emitido",
+        "2. Em Análise",
+        "3. Ação Definida",
+        "4. Em Implementação",
+        "5. Aguardando Validação",
+        "6. Encerrado"
+    ]
+    
+    cols_fluxo = st.columns(6)
+    for i, nome_etapa in enumerate(etapas_nomes, start=1):
+        with cols_fluxo[i-1]:
+            if i < etapa_atual:
+                st.success(f"✅\n\n**{nome_etapa}**")
+            elif i == etapa_atual:
+                st.warning(f"⏳\n\n**{nome_etapa}**\n*(Atual)*")
+            else:
+                st.markdown(f"⚪\n\n_{nome_etapa}_")
+
+    st.markdown("---")
+    
+    col_detalhes, col_controles = st.columns(2)
+    
+    with col_detalhes:
+        st.subheader("📋 Informações do Alerta")
+        st.write(f"**Produto:** {item_aq['produto']}")
+        st.write(f"**Lote:** {item_aq['lote']}")
+        st.write(f"**Defeito:** {item_aq['defeito']}")
+        st.write(f"**Área Responsável:** {item_aq['area']}")
+        st.write(f"**Responsável:** {item_aq['responsavel']}")
+        st.write(f"**Prazo:** {item_aq['prazo']}")
+        st.info(f"**Status Atual no Sistema:** {item_aq['status']}")
+
+    with col_controles:
+        st.subheader("⚙️ Ações e Avanço de Etapa")
+        
+        if etapa_atual < 6:
+            if st.button("🚀 Avançar para Próxima Etapa do Fluxo", use_container_width=True, type="primary"):
+                nova_etapa = etapa_atual + 1
+                novo_status = "ENCERRADO" if nova_etapa == 6 else item_aq['status']
+                
+                # Atualiza no Supabase
+                supabase.table("alertas").update({
+                    "etapa_atual": nova_etapa,
+                    "status": novo_status
+                }).eq("id", aq_selecionada).execute()
+                
+                st.success(f"Alerta {aq_selecionada} avançado para a etapa {nova_etapa} com sucesso!")
+                st.rerun()
+        else:
+            st.success("🎉 Este alerta já concluiu todas as etapas e está Encerrado!")
+
+        # Campo para observações e ação de contenção
+        acao_atual = item_aq.get("acao_contencao") or ""
+        nova_acao = st.text_area("Ação de Contenção / Observações:", value=acao_atual)
+        if st.button("Salvar Observações", use_container_width=True):
+            supabase.table("alertas").update({
+                "acao_contencao": nova_acao
+            }).eq("id", aq_selecionada).execute()
+            st.toast("Salvo com sucesso!")
+            st.rerun()
+
+# --- 3. TELA: NOVO ALERTA ---
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
     st.markdown("---")
@@ -358,23 +421,23 @@ elif menu_opcao == "➕ Novo Alerta":
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
-                    "dias_restantes": int(dias_restantes), "status": status
+                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": 1
                 }
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
                     st.success(f"🎉 Alerta {id_alerta} salvo com sucesso!")
-                    st.cache_data.clear()
+                    st.cache_resource.clear()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
- 
-# --- Restante das páginas mantido original ---
+
+# --- RESTANTE DAS PÁGINAS DO MENU ---
 elif menu_opcao == "🔔 Alertas Abertos":
     st.title("🔔 ALERTAS EM ANDAMENTO")
     df_filtrado = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
     if not df_filtrado.empty:
         df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
- 
+
 elif menu_opcao == "⏰ Alertas Vencidos":
     st.title("⏰ ALERTAS VENCIDOS E EM ATRASO")
     df_filtrado = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
@@ -383,14 +446,14 @@ elif menu_opcao == "⏰ Alertas Vencidos":
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
     else:
         st.success("Excelente! Não existem alertas vencidos no momento.")
- 
+
 elif menu_opcao == "✔️ Encerrados":
     st.title("✔️ HISTÓRICO DE ALERTAS ENCERRADOS")
     df_filtrado = df_alertas[df_alertas['status'] == 'ENCERRADO'].copy()
     if not df_filtrado.empty:
         df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]), use_container_width=True, hide_index=True)
- 
+
 elif menu_opcao == "📊 Indicadores":
     st.title("📊 PAINEL GERAL DE INDICADORES (KPIs)")
     col_g1, col_g2 = st.columns(2)
@@ -398,7 +461,7 @@ elif menu_opcao == "📊 Indicadores":
         st.plotly_chart(px.bar(df_alertas, x="area", color="status", title="Volume por Área", barmode="stack"), use_container_width=True)
     with col_g2:
         st.plotly_chart(px.histogram(df_alertas, x="status", title="Distribuição por Status", color="status"), use_container_width=True)
- 
+
 elif menu_opcao == "📈 Análises":
     st.title("📈 ANÁLISES CRÍTICAS E PARETO")
     df_pareto = df_alertas["defeito"].value_counts().reset_index()
@@ -409,7 +472,7 @@ elif menu_opcao == "📈 Análises":
     fig_pareto.add_trace(go.Scatter(x=df_pareto["Defeito"], y=df_pareto["% Acumulada"], name="% Acumulada", yaxis="y2", line=dict(color="#EF4444"), mode="lines+markers"))
     fig_pareto.update_layout(title="Diagrama de Pareto", yaxis=dict(title="Qtd"), yaxis2=dict(title="% Acumulada", overlaying="y", side="right", range=[0, 105]))
     st.plotly_chart(fig_pareto, use_container_width=True)
- 
+
 elif menu_opcao == "📄 Relatórios":
     st.title("📄 EXTRAÇÃO E EMISSÃO DE RELATÓRIOS")
     st.dataframe(df_alertas, use_container_width=True, hide_index=True)
