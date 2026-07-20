@@ -42,7 +42,7 @@ except Exception as e:
     st.error("Erro ao conectar ao banco de dados. Verifique as credenciais.")
     st.stop()
 
-# 2. Carregar e processar dados de forma dinâmica e em tempo real
+# 2. Carregar e processar dados em tempo real (Sem cache estático para evitar atrasos)
 def carregar_dados():
     try:
         resposta = supabase.table("alertas").select("*").execute()
@@ -53,13 +53,13 @@ def carregar_dados():
         hoje = date.today()
         df['prazo'] = pd.to_datetime(df['prazo']).dt.date
         
-        # Garante que a coluna etapa_atual exista no DataFrame
         if 'etapa_atual' not in df.columns:
             df['etapa_atual'] = 1
 
         # ====== RECALCULO DINÂMICO DE PRAZOS E STATUS ======
         for index, row in df.iterrows():
-            if row['status'] == 'ENCERRADO':
+            if row.get('etapa_atual', 1) >= 6 or row['status'] == 'ENCERRADO':
+                df.at[index, 'status'] = 'ENCERRADO'
                 df.at[index, 'dias_restantes'] = 0
             else:
                 dias = (row['prazo'] - hoje).days
@@ -135,7 +135,6 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("##### Monitoramento integrado de não-conformidades em tempo real")
     st.markdown("---")
 
-    # KPIs dinâmicos
     total_alertas = len(df_alertas)
     abertos = len(df_alertas[df_alertas['status'] != 'ENCERRADO'])
     vencidos = len(df_alertas[df_alertas['status'] == 'VENCIDO'])
@@ -158,7 +157,6 @@ if menu_opcao == "🏠 Visão Geral":
         st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{no_prazo_str}</div><div class="kpi-subtitle" style="color: #6B7280;">Meta: 80%</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-
     st.markdown("### ALERTAS EM ABERTO")
     col_tabela, col_detalhes = st.columns([3, 1.4])
 
@@ -179,39 +177,30 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_vencidos_detalhe[df_vencidos_detalhe['id'] == alerta_vencido_selecionado].iloc[0]
             data_emissao = item.get('data_emissao', '08/07/2026')
             contencao = item.get('acao_contencao', 'Ajuste no processo produtivo (Bloqueio preventivo de lote)')
-            observacoes = item.get('observacoes', 'Alerta ultrapassou o prazo limite de tratativa. Necessário plano de ação imediato junto à engenharia.')
+            observacoes = item.get('observacoes', 'Alerta ultrapassou o prazo limite de tratativa.')
             status_cor = "#EF4444"
             
             st.markdown(f"""
-            <div style="background-color: #FEE2E2; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #FCA5A5; border-bottom: none; font-family: 'Segoe UI', sans-serif;">
-                <div style="color: #991B1B; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px;">DETALHES DO ALERTA VENCIDO</div>
-                <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 1px;">{item['id']}</div>
-                <div style="text-align: center; font-weight: bold; color: #991B1B; font-size: 13.5px; margin-bottom: 0px;">{item['defeito']}</div>
+            <div style="background-color: #FEE2E2; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #FCA5A5; border-bottom: none;">
+                <div style="color: #991B1B; text-align: center; font-size: 13px; font-weight: 700;">DETALHES DO ALERTA VENCIDO</div>
+                <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800;">{item['id']}</div>
+                <div style="text-align: center; font-weight: bold; color: #991B1B; font-size: 13.5px;">{item['defeito']}</div>
             </div>
             """, unsafe_allow_html=True)
             
             with st.container(border=True):
-                st.markdown(f"📁 **Produto:** &nbsp;&nbsp; `{item['produto']}`")
-                st.markdown(f"📦 **Lote:** &nbsp;&nbsp; `{item['lote']}`")
-                st.markdown(f"🏢 **Área Responsável:** &nbsp;&nbsp; `{item['area']}`")
-                st.markdown(f"👤 **Responsável:** &nbsp;&nbsp; `{item['responsavel']}`")
-                st.markdown(f"📅 **Data de Emissão:** &nbsp;&nbsp; `{data_emissao}`")
-                st.markdown(f"🕒 **Prazo para Ação:** &nbsp;&nbsp; <span style='color: #EF4444; font-weight: bold;'>{item['prazo'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
-                st.markdown(f"🕒 **Dias Restantes:** &nbsp;&nbsp; <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']} (Atrasado)</span>", unsafe_allow_html=True)
-                st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;'>VENCIDO</span>", unsafe_allow_html=True)
+                st.markdown(f"📁 **Produto:** `{item['produto']}`")
+                st.markdown(f"📦 **Lote:** `{item['lote']}`")
+                st.markdown(f"🏢 **Área Responsável:** `{item['area']}`")
+                st.markdown(f"👤 **Responsável:** `{item['responsavel']}`")
+                st.markdown(f"🕒 **Prazo para Ação:** <span style='color: #EF4444; font-weight: bold;'>{item['prazo']}</span>", unsafe_allow_html=True)
+                st.markdown(f"🕒 **Dias Restantes:** <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']} (Atrasado)</span>", unsafe_allow_html=True)
+                st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold;'>VENCIDO</span>", unsafe_allow_html=True)
                 st.divider()
                 st.markdown("⚠️ **Ação de Contenção Exigida:**")
                 st.caption(contencao)
-                st.markdown("🚨 **Histórico / Observações de Atraso:**")
-                st.error(observacoes)
         else:
-            st.markdown("""
-            <div style="background-color: #D1FAE5; padding: 25px; border-radius: 12px; border: 1px solid #34D399; text-align: center; font-family: 'Segoe UI', sans-serif;">
-                <span style="font-size: 40px;">🎉</span>
-                <h4 style="color: #065F46; margin-top: 10px;">OPERACIONAL 100%</h4>
-                <p style="color: #047857; font-size: 13px;">Nenhum alerta de qualidade está vencido ou em atraso hoje!</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.success("🎉 Nenhum alerta vencido no momento!")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -220,101 +209,33 @@ if menu_opcao == "🏠 Visão Geral":
     with g_col1:
         with st.container(border=True):
             if area_dist:
-                labels_area = list(area_dist.keys())
-                values_area = list(area_dist.values())
-                
-                fig1 = go.Figure(data=[go.Pie(
-                    labels=labels_area, 
-                    values=values_area, 
-                    hole=0.5,
-                    textinfo='label+value+percent',
-                    textposition='outside',
-                    insidetextorientation='radial',
-                    showlegend=False
-                )])
-                fig1.update_layout(
-                    title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
-                    margin=dict(l=30, r=30, t=50, b=30), 
-                    height=250,
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
+                fig1 = go.Figure(data=[go.Pie(labels=list(area_dist.keys()), values=list(area_dist.values()), hole=0.5, textinfo='label+value+percent', showlegend=False)])
+                fig1.update_layout(title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=30, r=30, t=50, b=30), height=250, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
 
     with g_col2:
         with st.container(border=True):
             if status_dist:
-                labels_status = list(status_dist.keys())
-                values_status = list(status_dist.values())
-                
-                total_status = sum(values_status)
-                legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(labels_status, values_status)]
-                
-                fig2 = go.Figure(data=[go.Pie(
-                    labels=legenda_formatada, 
-                    values=values_status, 
-                    hole=0.5,
-                    textinfo='none', 
-                    showlegend=True
-                )])
-                fig2.update_layout(
-                    title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
-                    margin=dict(l=10, r=10, t=50, b=10), 
-                    height=250,
-                    legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=9)),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
+                total_status = sum(status_dist.values())
+                legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(status_dist.keys(), status_dist.values())]
+                fig2 = go.Figure(data=[go.Pie(labels=legenda_formatada, values=list(status_dist.values()), hole=0.5, textinfo='none', showlegend=True)])
+                fig2.update_layout(title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=10, t=50, b=10), height=250, legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=9)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
     with g_col3:
         with st.container(border=True):
             if defect_dist := defeito_dist:
                 df_def = pd.DataFrame(list(defect_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
-                
-                fig3 = go.Figure(go.Bar(
-                    x=df_def['Qtd'],
-                    y=df_def['Defeito'],
-                    orientation='h',
-                    marker_color='#0E4687',
-                    text=df_def['Qtd'], 
-                    textposition='outside', 
-                    textfont=dict(size=11, color='#374151', weight='bold')
-                ))
-                fig3.update_layout(
-                    title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
-                    margin=dict(l=10, r=30, t=50, b=10), 
-                    height=250,
-                    xaxis=dict(showgrid=False, visible=False), 
-                    yaxis=dict(showgrid=False, tickfont=dict(size=11)),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
+                fig3 = go.Figure(go.Bar(x=df_def['Qtd'], y=df_def['Defeito'], orientation='h', marker_color='#0E4687', text=df_def['Qtd'], textposition='outside'))
+                fig3.update_layout(title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=30, t=50, b=10), height=250, xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False, tickfont=dict(size=11)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
 
     with g_col4:
         with st.container(border=True):
             if not df_tempo.empty:
                 fig4 = go.Figure()
-                fig4.add_trace(go.Scatter(
-                    x=df_tempo["Mês"], 
-                    y=df_tempo["Dias"], 
-                    mode='lines+markers+text',
-                    text=df_tempo["Dias"], 
-                    textposition='top center', 
-                    textfont=dict(size=11, color='#374151', weight='bold'),
-                    line=dict(color='#0284C7', width=2.5),
-                    marker=dict(size=7, color='#0284C7')
-                ))
-                fig4.update_layout(
-                    title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")),
-                    margin=dict(l=20, r=20, t=50, b=10), 
-                    height=250,
-                    xaxis=dict(showgrid=False),
-                    yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
+                fig4.add_trace(go.Scatter(x=df_tempo["Mês"], y=df_tempo["Dias"], mode='lines+markers+text', text=df_tempo["Dias"], textposition='top center', line=dict(color='#0284C7', width=2.5)))
+                fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
 # =======================================================
@@ -370,22 +291,29 @@ elif menu_opcao == "➕ Inserir Tratativa":
         st.subheader("⚙️ Ações e Avanço de Etapa")
         
         if etapa_atual < 6:
-            if st.button("🚀 Avançar para Próxima Etapa do Fluxo", use_container_width=True, type="primary"):
+            if st.button("🚀 Avançar Etapa Diretamente", use_container_width=True, type="primary"):
                 nova_etapa = etapa_atual + 1
-                novo_status = "ENCERRADO" if nova_etapa == 6 else item_aq['status']
                 
-                # Atualiza no Supabase
-                supabase.table("alertas").update({
-                    "etapa_atual": nova_etapa,
-                    "status": novo_status
-                }).eq("id", aq_selecionada).execute()
+                # Se for para a etapa 6, encerra automaticamente e zera os dias restantes
+                if nova_etapa == 6:
+                    dados_update = {
+                        "etapa_atual": 6,
+                        "status": "ENCERRADO",
+                        "dias_restantes": 0
+                    }
+                else:
+                    dados_update = {
+                        "etapa_atual": nova_etapa
+                    }
                 
-                st.success(f"Alerta {aq_selecionada} avançado para a etapa {nova_etapa} com sucesso!")
+                # Atualiza diretamente no Supabase
+                supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
+                
+                st.success(f"Alerta {aq_selecionada} atualizado com sucesso!")
                 st.rerun()
         else:
-            st.success("🎉 Este alerta já concluiu todas as etapas e está Encerrado!")
+            st.success("🎉 Este alerta já concluiu o fluxo e está Encerrado!")
 
-        # Campo para observações e ação de contenção
         acao_atual = item_aq.get("acao_contencao") or ""
         nova_acao = st.text_area("Ação de Contenção / Observações:", value=acao_atual)
         if st.button("Salvar Observações", use_container_width=True):
@@ -418,15 +346,16 @@ elif menu_opcao == "➕ Novo Alerta":
                 st.warning("⚠️ Preencha todos os campos obrigatórios!")
             else:
                 dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
+                etapa_inicial = 6 if status == "ENCERRADO" else 1
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
-                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": 1
+                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial
                 }
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
                     st.success(f"🎉 Alerta {id_alerta} salvo com sucesso!")
-                    st.cache_resource.clear()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
 
@@ -453,6 +382,8 @@ elif menu_opcao == "✔️ Encerrados":
     if not df_filtrado.empty:
         df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]), use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhum alerta encerrado no momento.")
 
 elif menu_opcao == "📊 Indicadores":
     st.title("📊 PAINEL GERAL DE INDICADORES (KPIs)")
