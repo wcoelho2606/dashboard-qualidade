@@ -261,7 +261,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== FLUXO DE TRATATIVAS COM DATAS REAIS SALVAS NO SUPABASE ==========
+    # ====== FLUXO DE TRATATIVAS ESTÁVEL NA TELA INICIAL (VISÃO GERAL) ========
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
@@ -272,23 +272,13 @@ if menu_opcao == "🏠 Visão Geral":
     item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
     etapa_visao = int(item_visao.get("etapa_atual", 1))
 
-    def formatar_data_banco(coluna_db):
-        val = item_visao.get(coluna_db)
-        if pd.notnull(val) and val != "" and val is not None:
-            try:
-                dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
-                return dt_obj.strftime('%d/%m/%Y\n%H:%M')
-            except:
-                return str(val)
-        return "-"
-
     passos_fluxo = [
-        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1')},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": formatar_data_banco('data_etapa_2')},
-        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": formatar_data_banco('data_etapa_3')},
-        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": formatar_data_banco('data_etapa_4')},
-        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_5')},
-        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
+        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade"},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável"},
+        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável"},
+        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável"},
+        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade"},
+        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade"}
     ]
 
     cols_f = st.columns(6)
@@ -300,8 +290,6 @@ if menu_opcao == "🏠 Visão Geral":
                         <div style="font-size: 24px;">✅</div>
                         <div style="font-weight: bold; font-size: 12px; color: #065F46;">{p['num']}. {p['titulo']}</div>
                         <div style="font-size: 10px; color: #047857;">{p['sub']}</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
                     </div>
                 """, unsafe_allow_html=True)
             elif p["num"] == etapa_visao:
@@ -310,8 +298,6 @@ if menu_opcao == "🏠 Visão Geral":
                         <div style="font-size: 24px;">⏳</div>
                         <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
                         <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #374151; white-space: pre-line;">{p['data'] if p['data'] != '-' else 'Pendente'}</small>
                     </div>
                 """, unsafe_allow_html=True)
             else:
@@ -320,8 +306,6 @@ if menu_opcao == "🏠 Visão Geral":
                         <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
                         <div style="font-weight: bold; font-size: 12px; color: #6B7280;">{p['num']}. {p['titulo']}</div>
                         <div style="font-size: 10px; color: #9CA3AF;">{p['sub']}</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #9CA3AF; white-space: pre-line;">-</small>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -380,11 +364,10 @@ elif menu_opcao == "➕ Inserir Tratativa":
         if etapa_atual < 6:
             if st.button("🚀 Avançar Etapa Diretamente", use_container_width=True, type="primary"):
                 nova_etapa = etapa_atual + 1
-                agora_iso = datetime.now().isoformat()
                 
+                # Monta os dados de atualização seguros sem colunas extras
                 dados_update = {
-                    "etapa_atual": nova_etapa,
-                    f"data_etapa_{nova_etapa}": agora_iso
+                    "etapa_atual": nova_etapa
                 }
                 
                 if nova_etapa == 6:
@@ -400,7 +383,6 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 dias_atuais = (item_aq['prazo'] - date.today()).days
                 status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
                 
-                # Atualização corrigida para reabertura sem enviar valores nulos problemáticos
                 supabase.table("alertas").update({
                     "etapa_atual": 2,
                     "status": status_reaberto,
@@ -443,16 +425,12 @@ elif menu_opcao == "➕ Novo Alerta":
             else:
                 dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
                 etapa_inicial = 6 if status == "ENCERRADO" else 1
-                agora_iso = datetime.now().isoformat()
                 
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
-                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
-                    "data_etapa_1": agora_iso
+                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial
                 }
-                if etapa_inicial == 6:
-                    novo_registro["data_etapa_6"] = agora_iso
 
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
