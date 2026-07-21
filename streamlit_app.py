@@ -31,14 +31,12 @@ st.markdown("""
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
         
-        .fluxo-etapa-ativa {
-            background-color: #FEF9C3; border: 2px solid #EAB308; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .fluxo-etapa-concluida {
-            background-color: #ECFDF5; border: 2px solid #10B981; border-radius: 12px; padding: 10px; text-align: center;
-        }
-        .fluxo-etapa-apagada {
-            background-color: #F3F4F6; border: 2px dashed #D1D5DB; border-radius: 12px; padding: 10px; text-align: center; opacity: 0.5;
+        /* Estilos modernos para a esteira do fluxo */
+        .fluxo-container { display: flex; align-items: center; justify-content: space-between; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .passo-item { text-align: center; flex: 1; position: relative; }
+        .circulo-passo {
+            width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 8px auto; font-size: 22px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     </style>
 """, unsafe_allow_html=True)
@@ -255,7 +253,7 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #10B981; background-color: #ECFDF5; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🟢 FOTO OK</div>", unsafe_allow_html=True)
                     foto_ok_val = item.get('foto_ok')
                     if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #10B981;">', unsafe_allow_html=True)
+                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 380px; object-fit: contain; background-color: #f8f9fa; border-radius: 6px; border: 2px solid #10B981;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
                         
@@ -263,7 +261,7 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #EF4444; background-color: #FEE2E2; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🔴 FOTO NOK</div>", unsafe_allow_html=True)
                     foto_nok_val = item.get('foto_nok')
                     if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #EF4444;">', unsafe_allow_html=True)
+                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 380px; object-fit: contain; background-color: #f8f9fa; border-radius: 6px; border: 2px solid #EF4444;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
 
@@ -306,7 +304,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ========
+    # ====== FLUXO DE TRATATIVAS INTERATIVO (ESTILO DA SUA IMAGEM) ======
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
@@ -320,13 +318,13 @@ if menu_opcao == "🏠 Visão Geral":
             if pd.notnull(val) and val != "" and val is not None:
                 try:
                     dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
-                    return dt_obj.strftime('%d/%m/%Y\n%H:%M')
+                    return dt_obj.strftime('%d/%m/%Y<br>%H:%M')
                 except:
                     return str(val)
             return fallback_str
 
-        data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n07:15') if pd.notnull(item_visao.get('prazo')) else "21/07/2026\n07:15"
-        data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n08:40') if pd.notnull(item_visao.get('prazo')) else "21/07/2026\n08:40"
+        data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y<br>07:15') if pd.notnull(item_visao.get('prazo')) else "21/07/2026<br>07:15"
+        data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y<br>08:40') if pd.notnull(item_visao.get('prazo')) else "21/07/2026<br>08:40"
 
         passos_fluxo = [
             {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
@@ -337,39 +335,44 @@ if menu_opcao == "🏠 Visão Geral":
             {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
         ]
 
-        cols_f = st.columns(6)
+        html_esteira = '<div class="fluxo-container">'
         for idx, p in enumerate(passos_fluxo):
-            with cols_f[idx]:
-                if etapa_visao == 6 or p["num"] < etapa_visao:
-                    st.markdown(f"""
-                        <div class="fluxo-etapa-concluida">
-                            <div style="font-size: 24px;">✅</div>
-                            <div style="font-weight: bold; font-size: 12px; color: #065F46;">{p['num']}. {p['titulo']}</div>
-                            <div style="font-size: 10px; color: #047857;">{p['sub']}</div>
-                            <hr style="margin: 5px 0;">
-                            <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
-                        </div>
-                    """, unsafe_allow_html=True)
-                elif p["num"] == etapa_visao:
-                    st.markdown(f"""
-                        <div class="fluxo-etapa-ativa">
-                            <div style="font-size: 24px;">⏳</div>
-                            <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
-                            <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
-                            <hr style="margin: 5px 0;">
-                            <small style="color: #374151; white-space: pre-line;">{p['data'] if p['data'] != '-' else 'Pendente'}</small>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                        <div class="fluxo-etapa-apagada">
-                            <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
-                            <div style="font-weight: bold; font-size: 12px; color: #6B7280;">{p['num']}. {p['titulo']}</div>
-                            <div style="font-size: 10px; color: #9CA3AF;">{p['sub']}</div>
-                            <hr style="margin: 5px 0;">
-                            <small style="color: #9CA3AF; white-space: pre-line;">-</small>
-                        </div>
-                    """, unsafe_allow_html=True)
+            # Define cores e estilos com base no status do passo
+            if etapa_visao == 6 or p["num"] < etapa_visao:
+                # Concluído (Verde)
+                borda = "#10B981"
+                bg = "#ECFDF5"
+                cor_texto = "#065F46"
+                emoji_icone = "✅"
+            elif p["num"] == etapa_visao:
+                # Atual / Em andamento (Azul / Amarelo vivo)
+                borda = "#3B82F6"
+                bg = "#EFF6FF"
+                cor_texto = "#1E40AF"
+                emoji_icone = p["emoji"]
+            else:
+                # Pendente / Futuro (Cinza)
+                borda = "#D1D5DB"
+                bg = "#F9FAFB"
+                cor_texto = "#9CA3AF"
+                emoji_icone = p["emoji"]
+
+            html_esteira += f"""
+                <div class="passo-item">
+                    <div class="circulo-passo" style="border: 2px solid {borda}; background-color: {bg};">
+                        <span>{emoji_icone}</span>
+                    </div>
+                    <div style="font-weight: bold; font-size: 13px; color: {cor_texto}; margin-bottom: 2px;">{p['titulo']}</div>
+                    <div style="font-size: 11px; color: #4B5563; margin-bottom: 6px;">{p['sub']}</div>
+                    <div style="font-size: 11px; color: #6B7280; line-height: 1.2;">{p['data']}</div>
+                </div>
+            """
+            # Adiciona a seta entre os passos (exceto no último)
+            if idx < len(passos_fluxo) - 1:
+                html_esteira += '<div style="color: #9CA3AF; font-size: 18px; font-weight: bold; margin-bottom: 30px;">➔</div>'
+
+        html_esteira += '</div>'
+        st.markdown(html_esteira, unsafe_allow_html=True)
 
 # =======================================================
 # ====== 2. TELA: INSERIR TRATATIVA =====================
@@ -609,7 +612,6 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
             tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
             if tem_foto_ok:
-                # Ajustado para object-fit: contain para mostrar a peça inteira sem cortes
                 st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_ok_unico")
@@ -621,7 +623,6 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
             tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
             if tem_foto_nok:
-                # Ajustado para object-fit: contain para mostrar a peça inteira sem cortes
                 st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
@@ -642,7 +643,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
                 dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
                 
             # Processamento Foto NOK
-            if remover_nok:
+            if remover_ok:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
                 dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
