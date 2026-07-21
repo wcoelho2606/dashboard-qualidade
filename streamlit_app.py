@@ -167,7 +167,9 @@ if menu_opcao == "🏠 Visão Geral":
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### ALERTAS EM ABERTO")
-    col_tabela, col_detalhes = st.columns([3, 1.4])
+    
+    # Layout Principaldividido: Tabela à esquerda e Detalhes + Fotos à direita
+    col_tabela, col_detalhes = st.columns([2.2, 1.8])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -176,38 +178,48 @@ if menu_opcao == "🏠 Visão Geral":
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
+            
+            # Seletor para escolher qual alerta auditar e ver as fotos
+            aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver os Detalhes e Fotos:", df_abertos["id"].tolist())
         else:
             st.success("Nenhum alerta em aberto no momento!")
+            aq_selecionada_visao = None
 
     with col_detalhes:
-        df_vencidos_detalhe = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
-        if not df_vencidos_detalhe.empty:
-            alerta_vencido_selecionado = st.selectbox("⚠️ Selecione a AQ Vencida para auditar:", df_vencidos_detalhe["id"].tolist())
-            item = df_vencidos_detalhe[df_vencidos_detalhe['id'] == alerta_vencido_selecionado].iloc[0]
-            contencao = item.get('acao_contencao', 'Ajuste no processo produtivo (Bloqueio preventivo de lote)')
-            status_cor = "#EF4444"
+        if aq_selecionada_visao:
+            item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
+            status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
             st.markdown(f"""
-            <div style="background-color: #FEE2E2; padding: 15px; border-radius: 12px 12px 0px 0px; border: 1px solid #FCA5A5; border-bottom: none;">
-                <div style="color: #991B1B; text-align: center; font-size: 13px; font-weight: 700;">DETALHES DO ALERTA VENCIDO</div>
-                <div style="color: #EF4444; text-align: center; font-size: 26px; font-weight: 800;">{item['id']}</div>
-                <div style="text-align: center; font-weight: bold; color: #991B1B; font-size: 13.5px;">{item['defeito']}</div>
+            <div style="background-color: #1E3A8A; padding: 12px; border-radius: 8px 8px 0px 0px; color: white; text-align: center;">
+                <div style="font-size: 12px; font-weight: 700;">AUDITORIA DO ALERTA</div>
+                <div style="font-size: 22px; font-weight: 800;">{item['id']}</div>
             </div>
             """, unsafe_allow_html=True)
             
             with st.container(border=True):
-                st.markdown(f"📁 **Produto:** `{item['produto']}`")
-                st.markdown(f"📦 **Lote:** `{item['lote']}`")
-                st.markdown(f"🏢 **Área Responsável:** `{item['area']}`")
-                st.markdown(f"👤 **Responsável:** `{item['responsavel']}`")
-                st.markdown(f"🕒 **Prazo para Ação:** <span style='color: #EF4444; font-weight: bold;'>{item['prazo']}</span>", unsafe_allow_html=True)
-                st.markdown(f"🕒 **Dias Restantes:** <span style='color: {status_cor}; font-weight: bold;'>{item['dias_restantes']} (Atrasado)</span>", unsafe_allow_html=True)
-                st.markdown(f"🛡️ **Status Atual:** <span style='background-color: {status_cor}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold;'>VENCIDO</span>", unsafe_allow_html=True)
+                st.markdown(f"📌 **Defeito:** `{item['defeito']}`")
+                st.markdown(f"📁 **Produto:** `{item['produto']}` | 📦 **Lote:** `{item['lote']}`")
+                st.markdown(f"🏢 **Área:** `{item['area']}` | 👤 **Resp.:** `{item['responsavel']}`")
+                st.markdown(f"🕒 **Prazo:** {item['prazo']} | 🛡️ **Status:** <span style='background-color: {status_cor}; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;'>{item['status']}</span>", unsafe_allow_html=True)
+                
                 st.divider()
-                st.markdown("⚠️ **Ação de Contenção Exigida:**")
-                st.caption(contencao)
-        else:
-            st.success("🎉 Nenhum alerta vencido no momento!")
+                st.markdown("🖼️ **REGISTRO FOTOGRÁFICO (PADRÃO OK / NOK)**")
+                
+                f_col1, f_col2 = st.columns(2)
+                with f_col1:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px;'>FOTO OK</div>", unsafe_allow_html=True)
+                    if item.get('foto_ok') and pd.notnull(item['foto_ok']):
+                        st.image(item['foto_ok'], use_column_width=True)
+                    else:
+                        st.info("Nenhuma foto OK cadastrada.")
+                        
+                with f_col2:
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px;'>FOTO NOK</div>", unsafe_allow_html=True)
+                    if item.get('foto_nok') and pd.notnull(item['foto_nok']):
+                        st.image(item['foto_nok'], use_column_width=True)
+                    else:
+                        st.info("Nenhuma foto NOK cadastrada.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -235,7 +247,7 @@ if menu_opcao == "🏠 Visão Geral":
                 df_def = pd.DataFrame(list(defect_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
                 fig3 = go.Figure(go.Bar(x=df_def['Qtd'], y=df_def['Defeito'], orientation='h', marker_color='#0E4687', text=df_def['Qtd'], textposition='outside'))
                 fig3.update_layout(title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=30, t=50, b=10), height=250, xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False, tickfont=dict(size=11)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig3, use_column_width=True, config={'displayModeBar': False})
 
     with g_col4:
         with st.container(border=True):
@@ -243,7 +255,7 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4 = go.Figure()
                 fig4.add_trace(go.Scatter(x=df_tempo["Mês"], y=df_tempo["Dias"], mode='lines+markers+text', text=df_tempo["Dias"], textposition='top center', line=dict(color='#0284C7', width=2.5)))
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig4, use_column_width=True, config={'displayModeBar': False})
 
     # =========================================================================
     # ====== FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ========
@@ -251,74 +263,72 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
     
-    lista_aqs_visao = df_alertas["id"].tolist()
-    aq_escolhida_visao = st.selectbox("Selecione o Alerta para acompanhar o Fluxo de Tratativas:", lista_aqs_visao, key="select_visao_fluxo")
-    
-    item_visao = df_alertas[df_alertas['id'] == aq_escolhida_visao].iloc[0]
-    etapa_visao = int(item_visao.get("etapa_atual", 1))
+    if aq_selecionada_visao:
+        item_visao = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
+        etapa_visao = int(item_visao.get("etapa_atual", 1))
 
-    def formatar_data_banco(coluna_db, fallback_str="-"):
-        val = item_visao.get(coluna_db)
-        if pd.notnull(val) and val != "" and val is not None:
-            try:
-                dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
-                return dt_obj.strftime('%d/%m/%Y\n%H:%M')
-            except:
-                return str(val)
-        return fallback_str
+        def formatar_data_banco(coluna_db, fallback_str="-"):
+            val = item_visao.get(coluna_db)
+            if pd.notnull(val) and val != "" and val is not None:
+                try:
+                    dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
+                    return dt_obj.strftime('%d/%m/%Y\n%H:%M')
+                except:
+                    return str(val)
+            return fallback_str
 
-    data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n07:15') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n07:15"
-    data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n08:40') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n08:40"
+        data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n07:15') if pd.notnull(item_visao.get('prazo')) else "21/07/2026\n07:15"
+        data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n08:40') if pd.notnull(item_visao.get('prazo')) else "21/07/2026\n08:40"
 
-    passos_fluxo = [
-        {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
-        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_3')},
-        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": item_visao.get('responsavel_implementacao', item_visao.get('responsavel', 'Responsável')), "data": formatar_data_banco('data_etapa_4')},
-        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": item_visao.get('validador_qualidade', 'Qualidade'), "data": formatar_data_banco('data_etapa_5')},
-        {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
-    ]
+        passos_fluxo = [
+            {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
+            {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
+            {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_3')},
+            {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": item_visao.get('responsavel_implementacao', item_visao.get('responsavel', 'Responsável')), "data": formatar_data_banco('data_etapa_4')},
+            {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": item_visao.get('validador_qualidade', 'Qualidade'), "data": formatar_data_banco('data_etapa_5')},
+            {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
+        ]
 
-    cols_f = st.columns(6)
-    for idx, p in enumerate(passos_fluxo):
-        with cols_f[idx]:
-            if etapa_visao == 6 or p["num"] < etapa_visao:
-                st.markdown(f"""
-                    <div class="fluxo-etapa-concluida">
-                        <div style="font-size: 24px;">✅</div>
-                        <div style="font-weight: bold; font-size: 12px; color: #065F46;">{p['num']}. {p['titulo']}</div>
-                        <div style="font-size: 10px; color: #047857;">{p['sub']}</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
-                    </div>
-                """, unsafe_allow_html=True)
-            elif p["num"] == etapa_visao:
-                st.markdown(f"""
-                    <div class="fluxo-etapa-ativa">
-                        <div style="font-size: 24px;">⏳</div>
-                        <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
-                        <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #374151; white-space: pre-line;">{p['data'] if p['data'] != '-' else 'Pendente'}</small>
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                    <div class="fluxo-etapa-apagada">
-                        <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
-                        <div style="font-weight: bold; font-size: 12px; color: #6B7280;">{p['num']}. {p['titulo']}</div>
-                        <div style="font-size: 10px; color: #9CA3AF;">{p['sub']}</div>
-                        <hr style="margin: 5px 0;">
-                        <small style="color: #9CA3AF; white-space: pre-line;">-</small>
-                    </div>
-                """, unsafe_allow_html=True)
+        cols_f = st.columns(6)
+        for idx, p in enumerate(passos_fluxo):
+            with cols_f[idx]:
+                if etapa_visao == 6 or p["num"] < etapa_visao:
+                    st.markdown(f"""
+                        <div class="fluxo-etapa-concluida">
+                            <div style="font-size: 24px;">✅</div>
+                            <div style="font-weight: bold; font-size: 12px; color: #065F46;">{p['num']}. {p['titulo']}</div>
+                            <div style="font-size: 10px; color: #047857;">{p['sub']}</div>
+                            <hr style="margin: 5px 0;">
+                            <small style="color: #374151; white-space: pre-line;">{p['data']}</small>
+                        </div>
+                    """, unsafe_allow_html=True)
+                elif p["num"] == etapa_visao:
+                    st.markdown(f"""
+                        <div class="fluxo-etapa-ativa">
+                            <div style="font-size: 24px;">⏳</div>
+                            <div style="font-weight: bold; font-size: 12px; color: #92400E;">{p['num']}. {p['titulo']}</div>
+                            <div style="font-size: 10px; color: #B45309;">{p['sub']} (Atual)</div>
+                            <hr style="margin: 5px 0;">
+                            <small style="color: #374151; white-space: pre-line;">{p['data'] if p['data'] != '-' else 'Pendente'}</small>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div class="fluxo-etapa-apagada">
+                            <div style="font-size: 24px; filter: grayscale(100%);">{p['emoji']}</div>
+                            <div style="font-weight: bold; font-size: 12px; color: #6B7280;">{p['num']}. {p['titulo']}</div>
+                            <div style="font-size: 10px; color: #9CA3AF;">{p['sub']}</div>
+                            <hr style="margin: 5px 0;">
+                            <small style="color: #9CA3AF; white-space: pre-line;">-</small>
+                        </div>
+                    """, unsafe_allow_html=True)
 
 # =======================================================
-# ====== 2. TELA: INSERIR TRATATIVA (COM BOTÃO VOLTAR ETAPA) =
+# ====== 2. TELA: INSERIR TRATATIVA =====================
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
-    st.title("➕ FLUXO DE TRATATIVAS E REGISTRO PROGRESSIVO")
-    st.markdown("Preencha as informações da fase atual ou retorne uma etapa caso necessário.")
+    st.title("➕ FLUXO DE TRATATIVAS E REGISTRO")
+    st.markdown("Preencha ou ajuste os dados das fases alcançadas. Volte etapas caso necessário.")
     st.markdown("---")
     
     lista_aqs = df_alertas["id"].tolist()
@@ -327,16 +337,8 @@ elif menu_opcao == "➕ Inserir Tratativa":
     item_aq = df_alertas[df_alertas['id'] == aq_selecionada].iloc[0]
     etapa_atual = int(item_aq.get("etapa_atual", 1))
 
-    # Exibição do Status Visual do Fluxo (6 Etapas)
     st.markdown("### 🔄 Andamento do Fluxo de Tratativas")
-    etapas_nomes = [
-        "1. Alerta Emitido",
-        "2. Em Análise",
-        "3. Ação Definida",
-        "4. Em Implementação",
-        "5. Aguardando Validação",
-        "6. Encerrado"
-    ]
+    etapas_nomes = ["1. Alerta Emitido", "2. Em Análise", "3. Ação Definida", "4. Em Implementação", "5. Aguardando Validação", "6. Encerrado"]
     
     cols_fluxo = st.columns(6)
     for i, nome_etapa in enumerate(etapas_nomes, start=1):
@@ -361,90 +363,79 @@ elif menu_opcao == "➕ Inserir Tratativa":
         st.write(f"**Responsável Principal:** `{item_aq['responsavel']}`")
         st.write(f"**Prazo:** {item_aq['prazo']}")
         st.info(f"**Status Atual:** {item_aq['status']}")
+        
+        st.markdown("---")
+        st.markdown("🖼️ **Fotos Cadastradas:**")
+        f_c1, f_c2 = st.columns(2)
+        with f_c1:
+            st.caption("Foto OK")
+            if item_aq.get('foto_ok'): st.image(item_aq['foto_ok'], use_column_width=True)
+        with f_c2:
+            st.caption("Foto NOK")
+            if item_aq.get('foto_nok'): st.image(item_aq['foto_nok'], use_column_width=True)
 
     with col_controles:
-        st.subheader("⚙️ Detalhamento por Fase")
+        st.subheader("⚙️ Detalhamento por Fase e Fotos")
         
-        causa_db = item_aq.get("causa_raiz") if pd.notnull(item_aq.get("causa_raiz")) else ""
-        if causa_db == "nan": causa_db = ""
+        causa_db = item_aq.get("causa_raiz") if pd.notnull(item_aq.get("causa_raiz")) and item_aq.get("causa_raiz") != "nan" else ""
+        acao_db = item_aq.get("acao_definida") if pd.notnull(item_aq.get("acao_definida")) and item_aq.get("acao_definida") != "nan" else ""
+        resp_impl_db = item_aq.get("responsavel_implementacao") if pd.notnull(item_aq.get("responsavel_implementacao")) and item_aq.get("responsavel_implementacao") != "nan" else item_aq['responsavel']
+        validador_db = item_aq.get("validador_qualidade") if pd.notnull(item_aq.get("validador_qualidade")) and item_aq.get("validador_qualidade") != "nan" else "Qualidade"
         
-        acao_db = item_aq.get("acao_definida") if pd.notnull(item_aq.get("acao_definida")) else ""
-        if acao_db == "nan": acao_db = ""
-        
-        resp_impl_db = item_aq.get("responsavel_implementacao") if pd.notnull(item_aq.get("responsavel_implementacao")) else item_aq['responsavel']
-        if resp_impl_db == "nan": resp_impl_db = item_aq['responsavel']
-        
-        validador_db = item_aq.get("validador_qualidade") if pd.notnull(item_aq.get("validador_qualidade")) else "Qualidade"
-        if validador_db == "nan": validador_db = "Qualidade"
+        foto_ok_db = item_aq.get("foto_ok") if pd.notnull(item_aq.get("foto_ok")) else ""
+        foto_nok_db = item_aq.get("foto_nok") if pd.notnull(item_aq.get("foto_nok")) else ""
 
         with st.form("form_tratativa_progressiva"):
             st.markdown(f"**Fase Atual do Alerta:** Etapa {etapa_atual}")
             
-            # --- ETAPA 2 ---
             if etapa_atual >= 2:
                 st.markdown("---")
                 st.markdown("🔍 **Etapa 2 - Causa Raiz / Análise do Problema**")
-                st.caption(f"Responsável: {item_aq['responsavel']}")
-                if etapa_atual == 2:
-                    nova_causa = st.text_area("Descreva a causa raiz identificada:", value=causa_db)
-                else:
-                    st.info(causa_db if causa_db else "*(Nenhuma causa informada)*")
-                    nova_causa = causa_db
+                nova_causa = st.text_area("Descreva a causa raiz identificada:", value=causa_db)
             else:
                 nova_causa = causa_db
 
-            # --- ETAPA 3 ---
             if etapa_atual >= 3:
                 st.markdown("---")
                 st.markdown("📋 **Etapa 3 - Ação Definida / Corretiva Tomada**")
-                st.caption(f"Responsável: {item_aq['responsavel']}")
-                if etapa_atual == 3:
-                    nova_acao = st.text_area("Descreva o plano de ação:", value=acao_db)
-                else:
-                    st.info(acao_db if acao_db else "*(Nenhuma ação informada)*")
-                    nova_acao = acao_db
+                nova_acao = st.text_area("Descreva o plano de ação:", value=acao_db)
             else:
                 nova_acao = acao_db
 
-            # --- ETAPA 4 ---
             if etapa_atual >= 4:
                 st.markdown("---")
                 st.markdown("⚙️ **Etapa 4 - Implementação da Correção**")
-                if etapa_atual == 4:
-                    novo_resp_impl = st.text_input("Responsável pela Implementação:", value=resp_impl_db)
-                else:
-                    st.info(f"Responsável: {resp_impl_db}")
-                    novo_resp_impl = resp_impl_db
+                novo_resp_impl = st.text_input("Responsável pela Implementação:", value=resp_impl_db)
             else:
                 novo_resp_impl = resp_impl_db
 
-            # --- ETAPA 5 ---
             if etapa_atual >= 5:
                 st.markdown("---")
                 st.markdown("✔️ **Etapa 5 - Validação da Qualidade**")
-                if etapa_atual == 5:
-                    novo_validador = st.text_input("Nome do Validador:", value=validador_db)
-                else:
-                    st.info(f"Validador: {validador_db}")
-                    novo_validador = validador_db
+                novo_validador = st.text_input("Nome do Validador:", value=validador_db)
             else:
                 novo_validador = validador_db
 
+            st.markdown("---")
+            st.markdown("🖼️ **Atualizar Links das Fotos (URL ou Caminho)**")
+            nova_foto_ok = st.text_input("Link da Foto OK:", value=foto_ok_db, placeholder="https://exemplo.com/foto_ok.jpg")
+            nova_foto_nok = st.text_input("Link da Foto NOK (Problema):", value=foto_nok_db, placeholder="https://exemplo.com/foto_nok.jpg")
+
             st.markdown("<br>", unsafe_allow_html=True)
-            salvar_progresso = st.form_submit_button("💾 Salvar Alterações da Fase Atual", use_container_width=True)
+            salvar_progresso = st.form_submit_button("💾 Salvar Alterações e Fotos", use_container_width=True)
             if salvar_progresso:
                 supabase.table("alertas").update({
                     "causa_raiz": nova_causa,
                     "acao_definida": nova_acao,
                     "responsavel_implementacao": novo_resp_impl,
-                    "validador_qualidade": novo_validador
+                    "validador_qualidade": novo_validador,
+                    "foto_ok": nova_foto_ok,
+                    "foto_nok": nova_foto_nok
                 }).eq("id", aq_selecionada).execute()
-                st.success("Dados salvos com sucesso!")
+                st.success("Dados e fotos salvos com sucesso!")
                 st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Botões de Ação de Avançar e Voltar Etapa lado a lado
         col_B1, col_B2, col_B3 = st.columns([1.5, 1.5, 1])
         
         with col_B1:
@@ -452,14 +443,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 if st.button("⬅️ Voltar Etapa Anterior", use_container_width=True):
                     etapa_anterior = etapa_atual - 1
                     dias_atuais = (item_aq['prazo'] - date.today()).days
-                    
-                    # Recalcula status caso estivesse encerrado e volte
                     status_calculado = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
                     
                     dados_volta = {
                         "etapa_atual": etapa_anterior,
                         "status": status_calculado,
-                        f"data_etapa_{etapa_atual}": None # Limpa a data da etapa que foi desfeita
+                        f"data_etapa_{etapa_atual}": None
                     }
                     if etapa_atual == 6:
                         dados_volta["dias_restantes"] = dias_atuais
@@ -508,15 +497,20 @@ elif menu_opcao == "➕ Novo Alerta":
         col1, col2 = st.columns(2)
         with col1:
             id_alerta = st.text_input("Nº do Alerta (ID)", placeholder="Ex: AQ-2026-032")
-            produto = st.text_input("Código do Produto", placeholder="Ex: 41.6830.010")
+            produto = st.text_input("Código do Produto", placeholder="Ex: 31.9294.35.0")
             lote = st.text_input("Lote", placeholder="Ex: 474950")
-            defeito = st.text_input("Defeito Detectado", placeholder="Ex: Rebarba excessiva")
+            defeito = st.text_input("Defeito Detectado", placeholder="Ex: Peças com deformação")
         with col2:
             area = st.selectbox("Área Responsável", ["Produção", "Ferramentaria", "Processo", "Injeção", "Qualidade"])
             responsavel = st.text_input("Nome do Responsável", placeholder="Ex: João Silva")
             prazo = st.date_input("Prazo para Ação", value=date.today())
             status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO", "ENCERRADO"])
             
+        st.markdown("---")
+        st.markdown("🖼️ **Registro Fotográfico Inicial**")
+        foto_ok_novo = st.text_input("Link da Foto OK", placeholder="https://exemplo.com/foto_ok.jpg")
+        foto_nok_novo = st.text_input("Link da Foto NOK (Problema)", placeholder="https://exemplo.com/foto_nok.jpg")
+
         submetido = st.form_submit_button("Gravar Ocorrência no Banco")
         if submetido:
             if not id_alerta or not produto or not lote or not defeito or not responsavel:
@@ -533,7 +527,9 @@ elif menu_opcao == "➕ Novo Alerta":
                     "data_etapa_1": agora_iso,
                     "data_etapa_2": agora_iso,
                     "responsavel_implementacao": responsavel,
-                    "validador_qualidade": "Qualidade"
+                    "validador_qualidade": "Qualidade",
+                    "foto_ok": foto_ok_novo,
+                    "foto_nok": foto_nok_novo
                 }
                 if etapa_inicial == 6:
                     novo_registro["data_etapa_6"] = agora_iso
