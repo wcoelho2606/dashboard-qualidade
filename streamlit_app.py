@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date
 from supabase import create_client
+import base64
 
 # Configuração da página executiva
 st.set_page_config(
@@ -109,6 +110,14 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
+def converter_imagem_base64(uploaded_file):
+    if uploaded_file is not None:
+        bytes_data = uploaded_file.getvalue()
+        base64_str = base64.b64encode(bytes_data).decode("utf-8")
+        mime = uploaded_file.type
+        return f"data:{mime};base64,{base64_str}"
+    return None
+
 # --- MENU LATERAL DE NAVEGAÇÃO ---
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/shield-with-growth-chart.png", width=80)
@@ -122,6 +131,7 @@ with st.sidebar:
             "🏠 Visão Geral", 
             "➕ Inserir Tratativa",
             "➕ Novo Alerta",
+            "🖼️ Gerenciar Fotos",
             "🔔 Alertas Abertos", 
             "⏰ Alertas Vencidos", 
             "✔️ Encerrados", 
@@ -389,15 +399,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 except: pass
 
     with col_controles:
-        st.subheader("⚙️ Detalhamento por Fase e Fotos")
+        st.subheader("⚙️ Detalhamento por Fase")
         
         causa_db = item_aq.get("causa_raiz") if pd.notnull(item_aq.get("causa_raiz")) and item_aq.get("causa_raiz") != "nan" else ""
         acao_db = item_aq.get("acao_definida") if pd.notnull(item_aq.get("acao_definida")) and item_aq.get("acao_definida") != "nan" else ""
         resp_impl_db = item_aq.get("responsavel_implementacao") if pd.notnull(item_aq.get("responsavel_implementacao")) and item_aq.get("responsavel_implementacao") != "nan" else item_aq['responsavel']
         validador_db = item_aq.get("validador_qualidade") if pd.notnull(item_aq.get("validador_qualidade")) and item_aq.get("validador_qualidade") != "nan" else "Qualidade"
-        
-        foto_ok_db = item_aq.get("foto_ok") if pd.notnull(item_aq.get("foto_ok")) else ""
-        foto_nok_db = item_aq.get("foto_nok") if pd.notnull(item_aq.get("foto_nok")) else ""
 
         with st.form("form_tratativa_progressiva"):
             st.markdown(f"**Fase Atual do Alerta:** Etapa {etapa_atual}")
@@ -414,7 +421,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 st.markdown("📋 **Etapa 3 - Ação Definida / Corretiva Tomada**")
                 nova_acao = st.text_area("Descreva o plano de ação:", value=acao_db)
             else:
-                nova_acao = acao_db
+                nova_acao = ação_db if 'ação_db' in locals() else acao_db
 
             if etapa_atual >= 4:
                 st.markdown("---")
@@ -430,23 +437,16 @@ elif menu_opcao == "➕ Inserir Tratativa":
             else:
                 novo_validador = validador_db
 
-            st.markdown("---")
-            st.markdown("🖼️ **Atualizar Links das Fotos (URL ou Caminho)**")
-            nova_foto_ok = st.text_input("Link da Foto OK:", value=foto_ok_db, placeholder="https://exemplo.com/foto_ok.jpg")
-            nova_foto_nok = st.text_input("Link da Foto NOK (Problema):", value=foto_nok_db, placeholder="https://exemplo.com/foto_nok.jpg")
-
             st.markdown("<br>", unsafe_allow_html=True)
-            salvar_progresso = st.form_submit_button("💾 Salvar Alterações e Fotos", use_container_width=True)
+            salvar_progresso = st.form_submit_button("💾 Salvar Alterações da Fase", use_container_width=True)
             if salvar_progresso:
                 supabase.table("alertas").update({
                     "causa_raiz": nova_causa,
                     "acao_definida": nova_acao,
                     "responsavel_implementacao": novo_resp_impl,
-                    "validador_qualidade": novo_validador,
-                    "foto_ok": nova_foto_ok,
-                    "foto_nok": nova_foto_nok
+                    "validador_qualidade": novo_validador
                 }).eq("id", aq_selecionada).execute()
-                st.success("Dados e fotos salvos com sucesso!")
+                st.success("Dados salvos com sucesso!")
                 st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -503,7 +503,9 @@ elif menu_opcao == "➕ Inserir Tratativa":
                     st.warning("Alerta retornado para a Etapa 2!")
                     st.rerun()
 
-# --- 3. TELA: NOVO ALERTA ---
+# =======================================================
+# ====== 3. TELA: NOVO ALERTA ===========================
+# =======================================================
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
     st.markdown("---")
@@ -520,11 +522,6 @@ elif menu_opcao == "➕ Novo Alerta":
             prazo = st.date_input("Prazo para Ação", value=date.today())
             status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO", "ENCERRADO"])
             
-        st.markdown("---")
-        st.markdown("🖼️ **Registro Fotográfico Inicial**")
-        foto_ok_novo = st.text_input("Link da Foto OK", placeholder="https://exemplo.com/foto_ok.jpg")
-        foto_nok_novo = st.text_input("Link da Foto NOK (Problema)", placeholder="https://exemplo.com/foto_nok.jpg")
-
         submetido = st.form_submit_button("Gravar Ocorrência no Banco")
         if submetido:
             if not id_alerta or not produto or not lote or not defeito or not responsavel:
@@ -541,19 +538,80 @@ elif menu_opcao == "➕ Novo Alerta":
                     "data_etapa_1": agora_iso,
                     "data_etapa_2": agora_iso,
                     "responsavel_implementacao": responsavel,
-                    "validador_qualidade": "Qualidade",
-                    "foto_ok": foto_ok_novo,
-                    "foto_nok": foto_nok_novo
+                    "validador_qualidade": "Qualidade"
                 }
                 if etapa_inicial == 6:
                     novo_registro["data_etapa_6"] = agora_iso
 
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
-                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso!")
+                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso! Agora adicione as fotos no menu 'Gerenciar Fotos'.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+
+# =======================================================
+# ====== 4. TELA: GERENCIAR FOTOS (NOVA TELA DEDICADA) ===
+# =======================================================
+elif menu_opcao == "🖼️ Gerenciar Fotos":
+    st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
+    st.markdown("Selecione um alerta para enviar ou atualizar as fotos do produto diretamente do seu computador.")
+    st.markdown("---")
+
+    lista_aqs_fotos = df_alertas["id"].tolist()
+    aq_foto_escolhida = st.selectbox("Selecione o Alerta para gerenciar as imagens:", lista_aqs_fotos)
+
+    if aq_foto_escolhida:
+        item_foto = df_alertas[df_alertas['id'] == aq_foto_escolhida].iloc[0]
+        
+        fc_info1, fc_info2 = st.columns(2)
+        with fc_info1:
+            st.info(f"**Produto:** {item_foto['produto']} | **Lote:** {item_foto['lote']}")
+        with fc_info2:
+            st.info(f"**Defeito:** {item_foto['defeito']}")
+
+        st.markdown("---")
+        
+        col_up1, col_up2 = st.columns(2)
+        
+        with col_up1:
+            st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
+            if item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != "":
+                try:
+                    st.image(str(item_foto['foto_ok']), caption="Foto OK Atual", use_column_width=True)
+                except:
+                    pass
+            
+            arquivo_ok = st.file_uploader("Enviar nova Foto OK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_ok")
+
+        with col_up2:
+            st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
+            if item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != "":
+                try:
+                    st.image(str(item_foto['foto_nok']), caption="Foto NOK Atual", use_column_width=True)
+                except:
+                    pass
+            
+            arquivo_nok = st.file_uploader("Enviar nova Foto NOK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_nok")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("💾 Salvar e Atualizar Fotos no Alerta", type="primary", use_container_width=True):
+            dados_atualizacao_fotos = {}
+            
+            if arquivo_ok is not None:
+                dados_atualizacao_fotos["foto_ok"] = converter_imagem_base64(arquivo_ok)
+            if arquivo_nok is not None:
+                dados_atualizacao_fotos["foto_nok"] = converter_imagem_base64(arquivo_nok)
+                
+            if dados_atualizacao_fotos:
+                try:
+                    supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
+                    st.success("🎉 Fotos atualizadas com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar fotos no banco: {e}")
+            else:
+                st.warning("Nenhum arquivo novo foi selecionado para upload.")
 
 # --- RESTANTE DAS PÁGINAS DO MENU ---
 elif menu_opcao == "🔔 Alertas Abertos":
