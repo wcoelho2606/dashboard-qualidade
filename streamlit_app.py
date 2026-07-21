@@ -7,7 +7,7 @@ from datetime import datetime, date
 from supabase import create_client
 import base64
 from io import BytesIO
-from PIL import Image, ImageOps
+from PIL import Image
 from streamlit_paste_button import paste_image_button
 
 # Configuração da página executiva
@@ -124,7 +124,6 @@ def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1200, 900)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Amplia e centraliza mantendo a proporção ideal para ocupar bem a largura da faixa
             img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
             fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
             
@@ -427,14 +426,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
             st.caption("Foto OK")
             fo = item_aq.get('foto_ok')
             if fo and pd.notnull(fo) and str(fo).strip() != "":
-                try: st.image(str(fo), use_column_width=True)
-                except: pass
+                st.markdown(f'<img src="{fo}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
         with f_c2:
             st.caption("Foto NOK")
             fn = item_aq.get('foto_nok')
             if fn and pd.notnull(fn) and str(fn).strip() != "":
-                try: st.image(str(fn), use_column_width=True)
-                except: pass
+                st.markdown(f'<img src="{fn}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
@@ -592,7 +589,7 @@ elif menu_opcao == "➕ Novo Alerta":
                     st.error(f"Erro ao salvar: {e}")
 
 # =======================================================
-# ====== 4. TELA: GERENCIAR FOTOS (COM PASTE E APAGAR) ==
+# ====== 4. TELA: GERENCIAR FOTOS =======================
 # =======================================================
 elif menu_opcao == "🖼️ Gerenciar Fotos":
     st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
@@ -621,10 +618,10 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if tem_foto_ok:
                 st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
-            arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="up_ok")
+            arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_ok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
-            paste_result_ok = paste_image_button(label="📋 Colar Foto OK (Ctrl+V)", key="paste_ok", background_color="#10B981")
-            remover_ok = st.checkbox("🗑️ Remover/Apagar Foto OK atual", key="del_ok")
+            paste_result_ok = paste_image_button(label="📋 Colar Foto OK (Ctrl+V)", key="paste_ok_unico", background_color="#10B981")
+            remover_ok = st.checkbox("🗑️ Remover/Apagar Foto OK atual", key="remover_ok_unico")
 
         with col_up2:
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
@@ -632,27 +629,10 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if tem_foto_nok:
                 st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
-            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="up_nok")
+            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
-            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok", background_color="#EF4444")
-            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="del_nok")
-
-        with col_up2:
-            st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
-            tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
-            if tem_foto_nok:
-                try:
-                    st.image(str(item_foto['foto_nok']), caption="Foto NOK Atual", use_column_width=True)
-                except:
-                    pass
-            
-            # Opções para Foto NOK: Arquivo, Colar Print ou Apagar
-            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="up_nok")
-            
-            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
-            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok", background_color="#EF4444")
-            
-            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="del_nok")
+            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok_unico", background_color="#EF4444")
+            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="remover_nok_unico")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("💾 Salvar Alterações e Atualizar Fotos", type="primary", use_container_width=True):
@@ -662,17 +642,17 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if remover_ok:
                 dados_atualizacao_fotos["foto_ok"] = None
             elif paste_result_ok.image_data is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(900, 600))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(1200, 900))
             elif arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(900, 600))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1200, 900))
                 
             # Processamento Foto NOK
             if remover_nok:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(900, 600))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1200, 900))
             elif arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(900, 600))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1200, 900))
                 
             if dados_atualizacao_fotos:
                 try:
@@ -717,20 +697,3 @@ elif menu_opcao == "📊 Indicadores":
         st.plotly_chart(px.bar(df_alertas, x="area", color="status", title="Volume por Área", barmode="stack"), use_container_width=True)
     with col_g2:
         st.plotly_chart(px.histogram(df_alertas, x="status", title="Distribuição por Status", color="status"), use_container_width=True)
-
-elif menu_opcao == "📈 Análises":
-    st.title("📈 ANÁLISES CRÍTICAS E PARETO")
-    df_pareto = df_alertas["defeito"].value_counts().reset_index()
-    df_pareto.columns = ["Defeito", "Qtd"]
-    df_pareto["% Acumulada"] = (df_pareto["Qtd"].cumsum() / df_pareto["Qtd"].sum()) * 100
-    fig_pareto = go.Figure()
-    fig_pareto.add_trace(go.Bar(x=df_pareto["Defeito"], y=df_pareto["Qtd"], name="Quantidade", marker_color="#0E4687"))
-    fig_pareto.add_trace(go.Scatter(x=df_pareto["Defeito"], y=df_pareto["% Acumulada"], name="% Acumulada", yaxis="y2", line=dict(color="#EF4444"), mode="lines+markers"))
-    fig_pareto.update_layout(title="Diagrama de Pareto", yaxis=dict(title="Qtd"), yaxis2=dict(title="% Acumulada", overlaying="y", side="right", range=[0, 105]))
-    st.plotly_chart(fig_pareto, use_container_width=True)
-
-elif menu_opcao == "📄 Relatórios":
-    st.title("📄 EXTRAÇÃO E EMISSÃO DE RELATÓRIOS")
-    st.dataframe(df_alertas, use_container_width=True, hide_index=True)
-    csv_data = df_alertas.to_csv(index=False).encode('utf-8')
-    st.download_button(label="📥 Exportar Base Completa (CSV)", data=csv_data, file_name="relatorio_alertas.csv", mime="text/csv", use_container_width=True)
