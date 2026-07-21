@@ -113,7 +113,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 600)):
+def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1200, 900)):
     if imagem_input is not None:
         try:
             if isinstance(imagem_input, Image.Image):
@@ -124,7 +124,7 @@ def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 600)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Mantém a proporção original da imagem (sem cortar o produto) e centraliza com fundo branco
+            # Amplia e centraliza mantendo a proporção ideal para ocupar bem a largura da faixa
             img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
             fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
             
