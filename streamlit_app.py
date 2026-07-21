@@ -113,7 +113,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(800, 600)):
+def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 600)):
     if imagem_input is not None:
         try:
             if isinstance(imagem_input, Image.Image):
@@ -124,10 +124,16 @@ def processar_e_converter_imagem(imagem_input, tamanho_alvo=(800, 600)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+            # Mantém a proporção original da imagem (sem cortar o produto) e centraliza com fundo branco
+            img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
+            fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
+            
+            pos_x = (tamanho_alvo[0] - img.width) // 2
+            pos_y = (tamanho_alvo[1] - img.height) // 2
+            fundo.paste(img, (pos_x, pos_y))
             
             buffered = BytesIO()
-            img_processada.save(buffered, format="JPEG", quality=90)
+            fundo.save(buffered, format="JPEG", quality=95)
             base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
             return f"data:image/jpeg;base64,{base64_str}"
         except Exception as e:
