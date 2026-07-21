@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 from datetime import datetime, date
 from supabase import create_client
 import base64
+from io import BytesIO
+from PIL import Image
 
 # Configuração da página executiva
 st.set_page_config(
@@ -110,13 +112,52 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def converter_imagem_base64(uploaded_file):
+# Função para redimensionar, alinhar e padronizar imagens automaticamente
+def processar_e_converter_imagem(uploaded_file, tamanho_alvo=(600, 600)):
     if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-        base64_str = base64.b64encode(bytes_data).decode("utf-8")
-        mime = uploaded_file.type
-        return f"data:{mime};base64,{base64_str}"
+        try:
+            img = Image.open(uploaded_file)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            # Redimensionamento inteligente mantendo proporção e centralizando em fundo branco
+            img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
+            fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
+            
+            pos_x = (tamanho_alvo[0] - img.width) // 2
+            pos_y = (tamanho_alvo[1] - img.height) // 2
+            fundo.paste(img, (pos_x, pos_y))
+            
+            buffered = BytesIO()
+            fundo.save(buffered, format="JPEG", quality=90)
+            base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+            return f"data:image/jpeg;base64,{base64_str}"
+        except Exception as e:
+            st.error(f"Erro ao processar imagem: {e}")
+            return None
     return None
+
+# Função para gerar o próximo ID de Alerta automaticamente
+def gerar_proximo_id(df):
+    ano_atual = datetime.now().strftime("%Y")
+    prefixo = f"AQ-{ano_atual}-"
+    
+    if df.empty or "id" not in df.columns:
+        return f"{prefixo}001"
+    
+    ids_existentes = df["id"].dropna().astype(str).tolist()
+    numeros = []
+    
+    for i_id in ids_existentes:
+        if prefixo in i_id:
+            try:
+                num_str = i_id.replace(prefixo, "")
+                numeros.append(int(num_str))
+            except:
+                pass
+                
+    proximo_num = (max(numeros) + 1) if numeros else 1
+    return f"{prefixo}{proximo_num:03d}"
 
 # --- MENU LATERAL DE NAVEGAÇÃO ---
 with st.sidebar:
@@ -421,7 +462,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 st.markdown("📋 **Etapa 3 - Ação Definida / Corretiva Tomada**")
                 nova_acao = st.text_area("Descreva o plano de ação:", value=acao_db)
             else:
-                nova_acao = ação_db if 'ação_db' in locals() else acao_db
+                nova_acao = acao_db
 
             if etapa_atual >= 4:
                 st.markdown("---")
@@ -504,15 +545,18 @@ elif menu_opcao == "➕ Inserir Tratativa":
                     st.rerun()
 
 # =======================================================
-# ====== 3. TELA: NOVO ALERTA ===========================
+# ====== 3. TELA: NOVO ALERTA (COM ID AUTOMÁTICO) ========
 # =======================================================
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
     st.markdown("---")
+    
+    proximo_id_sugerido = gerar_proximo_id(df_alertas)
+    
     with st.form("form_novo_alerta", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            id_alerta = st.text_input("Nº do Alerta (ID)", placeholder="Ex: AQ-2026-032")
+            id_alerta = st.text_input("Nº do Alerta (ID - Gerado Automaticamente)", value=proximo_id_sugerido)
             produto = st.text_input("Código do Produto", placeholder="Ex: 31.9294.35.0")
             lote = st.text_input("Lote", placeholder="Ex: 474950")
             defeito = st.text_input("Defeito Detectado", placeholder="Ex: Peças com deformação")
@@ -551,11 +595,11 @@ elif menu_opcao == "➕ Novo Alerta":
                     st.error(f"Erro ao salvar: {e}")
 
 # =======================================================
-# ====== 4. TELA: GERENCIAR FOTOS (NOVA TELA DEDICADA) ===
+# ====== 4. TELA: GERENCIAR FOTOS (COM ALINHAMENTO AUTOMÁTICO) ==
 # =======================================================
 elif menu_opcao == "🖼️ Gerenciar Fotos":
     st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
-    st.markdown("Selecione um alerta para enviar ou atualizar as fotos do produto diretamente do seu computador.")
+    st.markdown("Selecione um alerta e faça o upload. O sistema redimensiona e alinha as imagens automaticamente.")
     st.markdown("---")
 
     lista_aqs_fotos = df_alertas["id"].tolist()
@@ -595,18 +639,18 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             arquivo_nok = st.file_uploader("Enviar nova Foto NOK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_nok")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 Salvar e Atualizar Fotos no Alerta", type="primary", use_container_width=True):
+        if st.button("💾 Processar, Alinhar e Salvar Fotos no Alerta", type="primary", use_container_width=True):
             dados_atualizacao_fotos = {}
             
             if arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = converter_imagem_base64(arquivo_ok)
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok)
             if arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = converter_imagem_base64(arquivo_nok)
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok)
                 
             if dados_atualizacao_fotos:
                 try:
                     supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
-                    st.success("🎉 Fotos atualizadas com sucesso!")
+                    st.success("🎉 Imagens alinhadas e atualizadas com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar fotos no banco: {e}")
