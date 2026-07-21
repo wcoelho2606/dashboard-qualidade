@@ -7,7 +7,7 @@ from datetime import datetime, date
 from supabase import create_client
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Configuração da página executiva
 st.set_page_config(
@@ -112,7 +112,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-# Função para redimensionar, alinhar e padronizar imagens automaticamente
+# Função atualizada para preencher e centralizar perfeitamente a largura da faixa
 def processar_e_converter_imagem(uploaded_file, tamanho_alvo=(600, 600)):
     if uploaded_file is not None:
         try:
@@ -120,16 +120,11 @@ def processar_e_converter_imagem(uploaded_file, tamanho_alvo=(600, 600)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Redimensionamento inteligente mantendo proporção e centralizando em fundo branco
-            img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
-            fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
-            
-            pos_x = (tamanho_alvo[0] - img.width) // 2
-            pos_y = (tamanho_alvo[1] - img.height) // 2
-            fundo.paste(img, (pos_x, pos_y))
+            # Recorte proporcional centralizado (ImageOps.fit preenche exatamente a largura e altura sem bordas brancas)
+            img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             
             buffered = BytesIO()
-            fundo.save(buffered, format="JPEG", quality=90)
+            img_processada.save(buffered, format="JPEG", quality=90)
             base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
             return f"data:image/jpeg;base64,{base64_str}"
         except Exception as e:
@@ -545,7 +540,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
                     st.rerun()
 
 # =======================================================
-# ====== 3. TELA: NOVO ALERTA (COM ID AUTOMÁTICO) ========
+# ====== 3. TELA: NOVO ALERTA ===========================
 # =======================================================
 elif menu_opcao == "➕ Novo Alerta":
     st.title("➕ CADASTRAR NOVO ALERTA")
@@ -595,11 +590,11 @@ elif menu_opcao == "➕ Novo Alerta":
                     st.error(f"Erro ao salvar: {e}")
 
 # =======================================================
-# ====== 4. TELA: GERENCIAR FOTOS (COM ALINHAMENTO AUTOMÁTICO) ==
+# ====== 4. TELA: GERENCIAR FOTOS =======================
 # =======================================================
 elif menu_opcao == "🖼️ Gerenciar Fotos":
     st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
-    st.markdown("Selecione um alerta e faça o upload. O sistema redimensiona e alinha as imagens automaticamente.")
+    st.markdown("Selecione um alerta e faça o upload. O sistema preenche e centraliza as imagens automaticamente.")
     st.markdown("---")
 
     lista_aqs_fotos = df_alertas["id"].tolist()
@@ -639,7 +634,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             arquivo_nok = st.file_uploader("Enviar nova Foto NOK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_nok")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 Processar, Alinhar e Salvar Fotos no Alerta", type="primary", use_container_width=True):
+        if st.button("💾 Processar, Centralizar e Salvar Fotos", type="primary", use_container_width=True):
             dados_atualizacao_fotos = {}
             
             if arquivo_ok is not None:
@@ -650,7 +645,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if dados_atualizacao_fotos:
                 try:
                     supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
-                    st.success("🎉 Imagens alinhadas e atualizadas com sucesso!")
+                    st.success("🎉 Imagens centralizadas e atualizadas com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar fotos no banco: {e}")
