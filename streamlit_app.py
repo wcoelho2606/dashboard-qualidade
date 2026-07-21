@@ -255,7 +255,6 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #10B981; background-color: #ECFDF5; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🟢 FOTO OK</div>", unsafe_allow_html=True)
                     foto_ok_val = item.get('foto_ok')
                     if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        # Altura grande (380px) para máxima visibilidade dos operadores
                         st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #10B981;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
@@ -264,7 +263,6 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #EF4444; background-color: #FEE2E2; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🔴 FOTO NOK</div>", unsafe_allow_html=True)
                     foto_nok_val = item.get('foto_nok')
                     if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        # Altura grande (380px) para máxima visibilidade dos operadores
                         st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #EF4444;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
@@ -421,12 +419,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
             st.caption("Foto OK")
             fo = item_aq.get('foto_ok')
             if fo and pd.notnull(fo) and str(fo).strip() != "":
-                st.markdown(f'<img src="{fo}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fo}" style="width: 100%; height: 220px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
         with f_c2:
             st.caption("Foto NOK")
             fn = item_aq.get('foto_nok')
             if fn and pd.notnull(fn) and str(fn).strip() != "":
-                st.markdown(f'<img src="{fn}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fn}" style="width: 100%; height: 220px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
@@ -611,7 +609,8 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
             tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
             if tem_foto_ok:
-                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
+                # Ajustado para object-fit: contain para mostrar a peça inteira sem cortes
+                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_ok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
@@ -622,7 +621,8 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
             tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
             if tem_foto_nok:
-                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
+                # Ajustado para object-fit: contain para mostrar a peça inteira sem cortes
+                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
