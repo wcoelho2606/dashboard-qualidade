@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada corporativa (Layout, KPIs e ícones do fluxo apagados/acesos)
+# Estilização CSS customizada corporativa
 st.markdown("""
     <style>
         .reportview-container { background-color: #F4F6F9; }
@@ -28,27 +28,13 @@ st.markdown("""
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
         
         .fluxo-etapa-ativa {
-            background-color: #FEF9C3;
-            border: 2px solid #EAB308;
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background-color: #FEF9C3; border: 2px solid #EAB308; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .fluxo-etapa-concluida {
-            background-color: #ECFDF5;
-            border: 2px solid #10B981;
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
+            background-color: #ECFDF5; border: 2px solid #10B981; border-radius: 12px; padding: 10px; text-align: center;
         }
         .fluxo-etapa-apagada {
-            background-color: #F3F4F6;
-            border: 2px dashed #D1D5DB;
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-            opacity: 0.5;
+            background-color: #F3F4F6; border: 2px dashed #D1D5DB; border-radius: 12px; padding: 10px; text-align: center; opacity: 0.5;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -80,7 +66,6 @@ def carregar_dados():
         if 'etapa_atual' not in df.columns:
             df['etapa_atual'] = 1
 
-        # ====== RECALCULO DINÂMICO DE PRAZOS E STATUS ======
         for index, row in df.iterrows():
             if row.get('etapa_atual', 1) >= 6 or row['status'] == 'ENCERRADO':
                 df.at[index, 'status'] = 'ENCERRADO'
@@ -124,7 +109,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-# --- MENU LATERAL DE NAVEGAÇÃO COMPLETO ---
+# --- MENU LATERAL DE NAVEGAÇÃO ---
 with st.sidebar:
     st.image("https://img.icons8.com/fluency/96/shield-with-growth-chart.png", width=80)
     st.markdown("### GESTÃO DE ALERTAS")
@@ -261,7 +246,7 @@ if menu_opcao == "🏠 Visão Geral":
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
-    # ====== FLUXO DE TRATATIVAS COM DATAS REAIS E FALLBACK INTELIGENTE ======
+    # ====== FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ========
     # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
@@ -282,16 +267,15 @@ if menu_opcao == "🏠 Visão Geral":
                 return str(val)
         return fallback_str
 
-    # Fallback inteligente: se a data 1 ou 2 estiver vazia no banco, preenche com base no prazo/data atual para nunca ficar traço (-)
     data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n07:15') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n07:15"
     data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y\n08:40') if pd.notnull(item_visao.get('prazo')) else "20/07/2026\n08:40"
 
     passos_fluxo = [
         {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
-        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": "Responsável", "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
-        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": "Responsável", "data": formatar_data_banco('data_etapa_3')},
-        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": "Responsável", "data": formatar_data_banco('data_etapa_4')},
-        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_5')},
+        {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
+        {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_3')},
+        {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": item_visao.get('responsavel_implementacao', item_visao.get('responsavel', 'Responsável')), "data": formatar_data_banco('data_etapa_4')},
+        {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": item_visao.get('validador_qualidade', 'Qualidade'), "data": formatar_data_banco('data_etapa_5')},
         {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
     ]
 
@@ -330,11 +314,11 @@ if menu_opcao == "🏠 Visão Geral":
                 """, unsafe_allow_html=True)
 
 # =======================================================
-# ====== 2. TELA: INSERIR TRATATIVA (FLUXO DE ETAPAS) ====
+# ====== 2. TELA: INSERIR TRATATIVA (COM OS NOVOS CAMPOS) =
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
-    st.title("➕ FLUXO DE TRATATIVAS DOS ALERTAS")
-    st.markdown("Gerencie o andamento das etapas e avanço do status de cada alerta.")
+    st.title("➕ FLUXO DE TRATATIVAS E REGISTRO DETALHADO")
+    st.markdown("Gerencie as etapas, preencha as análises, causas, ações e responsáveis por fase.")
     st.markdown("---")
     
     lista_aqs = df_alertas["id"].tolist()
@@ -366,7 +350,7 @@ elif menu_opcao == "➕ Inserir Tratativa":
 
     st.markdown("---")
     
-    col_detalhes, col_controles = st.columns(2)
+    col_detalhes, col_controles = st.columns([1.2, 1.8])
     
     with col_detalhes:
         st.subheader("📋 Informações do Alerta")
@@ -374,53 +358,81 @@ elif menu_opcao == "➕ Inserir Tratativa":
         st.write(f"**Lote:** {item_aq['lote']}")
         st.write(f"**Defeito:** {item_aq['defeito']}")
         st.write(f"**Área Responsável:** {item_aq['area']}")
-        st.write(f"**Responsável:** {item_aq['responsavel']}")
+        st.write(f"**Responsável Principal:** `{item_aq['responsavel']}`")
         st.write(f"**Prazo:** {item_aq['prazo']}")
-        st.info(f"**Status Atual no Sistema:** {item_aq['status']}")
+        st.info(f"**Status Atual:** {item_aq['status']}")
+        
+        # Exibição dos dados salvos anteriormente
+        if item_aq.get('causa_raiz'):
+            st.markdown(f"🔍 **Causa Raiz Registrada:** {item_aq['causa_raiz']}")
+        if item_aq.get('acao_definida'):
+            st.markdown(f"📋 **Ação Tomada:** {item_aq['acao_definida']}")
+        if item_aq.get('validador_qualidade'):
+            st.markdown(f"✔️ **Validador:** {item_aq['validador_qualidade']}")
 
     with col_controles:
-        st.subheader("⚙️ Ações e Avanço de Etapa")
+        st.subheader("⚙️ Detalhamento e Avanço de Etapas")
         
-        if etapa_atual < 6:
-            if st.button("🚀 Avançar Etapa Diretamente", use_container_width=True, type="primary"):
-                nova_etapa = etapa_atual + 1
-                agora_iso = datetime.now().isoformat()
-                
-                dados_update = {
-                    "etapa_atual": nova_etapa,
-                    f"data_etapa_{nova_etapa}": agora_iso
-                }
-                
-                if nova_etapa == 6:
-                    dados_update["status"] = "ENCERRADO"
-                    dados_update["dias_restantes"] = 0
-                
-                supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
-                st.success(f"Alerta {aq_selecionada} avançado para a etapa {nova_etapa} com sucesso!")
-                st.rerun()
-        else:
-            st.success("🎉 Este alerta já concluiu o fluxo e está Encerrado!")
-            if st.button("🔄 Reabrir Alerta (Voltar para Análise)", use_container_width=True):
-                dias_atuais = (item_aq['prazo'] - date.today()).days
-                status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
-                
+        # Formulário interativo para preencher os dados de cada etapa com base na fase atual
+        with st.form("form_detalhes_tratativa"):
+            st.markdown(f"**Fase Atual do Alerta:** Etapa {etapa_atual}")
+            
+            causa_atual = item_aq.get("causa_raiz") or ""
+            acao_atual = item_aq.get("acao_definida") or ""
+            resp_impl_atual = item_aq.get("responsavel_implementacao") or item_aq['responsavel']
+            validador_atual = item_aq.get("validador_qualidade") or "Qualidade"
+            
+            nova_causa = st.text_area("🔍 Etapa 2 - Causa Raiz / Análise do Problema:", value=causa_atual, placeholder="Descreva a causa raiz identificada pelo responsável...")
+            nova_acao = st.text_area("📋 Etapa 3 - Ação Definida / Corretiva Tomada:", value=acao_atual, placeholder="Descreva o plano de ação ou a tratativa realizada...")
+            novo_resp_impl = st.text_input("⚙️ Etapa 4 - Responsável pela Implementação:", value=resp_impl_atual)
+            novo_validador = st.text_input("✔️ Etapa 5 - Validador (Qualidade):", value=validador_atual)
+            
+            salvar_detalhes = st.form_submit_button("💾 Salvar Informações das Etapas")
+            if salvar_detalhes:
                 supabase.table("alertas").update({
-                    "etapa_atual": 2,
-                    "status": status_reaberto,
-                    "dias_restantes": dias_atuais
+                    "causa_raiz": nova_causa,
+                    "acao_definida": nova_acao,
+                    "responsavel_implementacao": novo_resp_impl,
+                    "validador_qualidade": novo_validador
                 }).eq("id", aq_selecionada).execute()
-                
-                st.warning(f"Alerta {aq_selecionada} reaberto e retornado para a Etapa 2!")
+                st.success("Informações salvas com sucesso!")
                 st.rerun()
 
-        acao_atual = item_aq.get("acao_contencao") or ""
-        nova_acao = st.text_area("Ação de Contenção / Observações:", value=acao_atual)
-        if st.button("Salvar Observações", use_container_width=True):
-            supabase.table("alertas").update({
-                "acao_contencao": nova_acao
-            }).eq("id", aq_selecionada).execute()
-            st.toast("Salvo com sucesso!")
-            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if etapa_atual < 6:
+                if st.button("🚀 Avançar Etapa Atual", use_container_width=True, type="primary"):
+                    nova_etapa = etapa_atual + 1
+                    agora_iso = datetime.now().isoformat()
+                    
+                    dados_update = {
+                        "etapa_atual": nova_etapa,
+                        f"data_etapa_{nova_etapa}": agora_iso
+                    }
+                    if nova_etapa == 6:
+                        dados_update["status"] = "ENCERRADO"
+                        dados_update["dias_restantes"] = 0
+                    
+                    supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
+                    st.success(f"Alerta avançado para a etapa {nova_etapa}!")
+                    st.rerun()
+            else:
+                st.success("Fluxo Concluído!")
+
+        with col_btn2:
+            if etapa_atual == 6:
+                if st.button("🔄 Reabrir Alerta", use_container_width=True):
+                    dias_atuais = (item_aq['prazo'] - date.today()).days
+                    status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
+                    supabase.table("alertas").update({
+                        "etapa_atual": 2,
+                        "status": status_reaberto,
+                        "dias_restantes": dias_atuais
+                    }).eq("id", aq_selecionada).execute()
+                    st.warning("Alerta retornado para a Etapa 2!")
+                    st.rerun()
 
 # --- 3. TELA: NOVO ALERTA ---
 elif menu_opcao == "➕ Novo Alerta":
@@ -448,13 +460,14 @@ elif menu_opcao == "➕ Novo Alerta":
                 etapa_inicial = 6 if status == "ENCERRADO" else 1
                 agora_iso = datetime.now().isoformat()
                 
-                # Ao criar o novo alerta, já carimba tanto a Etapa 1 quanto a Etapa 2 automaticamente
                 novo_registro = {
                     "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
                     "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
                     "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
                     "data_etapa_1": agora_iso,
-                    "data_etapa_2": agora_iso
+                    "data_etapa_2": agora_iso,
+                    "responsavel_implementacao": responsavel,
+                    "validador_qualidade": "Qualidade"
                 }
                 if etapa_inicial == 6:
                     novo_registro["data_etapa_6"] = agora_iso
