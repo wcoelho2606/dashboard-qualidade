@@ -8,6 +8,7 @@ from supabase import create_client
 import base64
 from io import BytesIO
 from PIL import Image, ImageOps
+from streamlit_paste_button import paste_image_button
 
 # Configuração da página executiva
 st.set_page_config(
@@ -112,15 +113,17 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-# Função atualizada para preencher e centralizar perfeitamente a largura da faixa
-def processar_e_converter_imagem(uploaded_file, tamanho_alvo=(600, 600)):
-    if uploaded_file is not None:
+def processar_e_converter_imagem(imagem_input, tamanho_alvo=(800, 600)):
+    if imagem_input is not None:
         try:
-            img = Image.open(uploaded_file)
+            if isinstance(imagem_input, Image.Image):
+                img = imagem_input
+            else:
+                img = Image.open(imagem_input)
+                
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Recorte proporcional centralizado (ImageOps.fit preenche exatamente a largura e altura sem bordas brancas)
             img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             
             buffered = BytesIO()
@@ -132,7 +135,6 @@ def processar_e_converter_imagem(uploaded_file, tamanho_alvo=(600, 600)):
             return None
     return None
 
-# Função para gerar o próximo ID de Alerta automaticamente
 def gerar_proximo_id(df):
     ano_atual = datetime.now().strftime("%Y")
     prefixo = f"AQ-{ano_atual}-"
@@ -590,11 +592,11 @@ elif menu_opcao == "➕ Novo Alerta":
                     st.error(f"Erro ao salvar: {e}")
 
 # =======================================================
-# ====== 4. TELA: GERENCIAR FOTOS =======================
+# ====== 4. TELA: GERENCIAR FOTOS (COM PASTE E APAGAR) ==
 # =======================================================
 elif menu_opcao == "🖼️ Gerenciar Fotos":
     st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
-    st.markdown("Selecione um alerta e faça o upload. O sistema preenche e centraliza as imagens automaticamente.")
+    st.markdown("Selecione um alerta para atualizar as fotos via upload, colando da área de transferência (Ctrl+V) ou apagando.")
     st.markdown("---")
 
     lista_aqs_fotos = df_alertas["id"].tolist()
@@ -615,42 +617,67 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
         
         with col_up1:
             st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
-            if item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != "":
+            tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
+            if tem_foto_ok:
                 try:
                     st.image(str(item_foto['foto_ok']), caption="Foto OK Atual", use_column_width=True)
                 except:
                     pass
             
-            arquivo_ok = st.file_uploader("Enviar nova Foto OK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_ok")
+            # Opções para Foto OK: Arquivo, Colar Print ou Apagar
+            arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="up_ok")
+            
+            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
+            paste_result_ok = paste_image_button(label="📋 Colar Foto OK (Ctrl+V)", key="paste_ok", background_color="#10B981")
+            
+            remover_ok = st.checkbox("🗑️ Remover/Apagar Foto OK atual", key="del_ok")
 
         with col_up2:
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
-            if item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != "":
+            tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
+            if tem_foto_nok:
                 try:
                     st.image(str(item_foto['foto_nok']), caption="Foto NOK Atual", use_column_width=True)
                 except:
                     pass
             
-            arquivo_nok = st.file_uploader("Enviar nova Foto NOK (JPG/PNG)", type=["jpg", "jpeg", "png"], key="up_nok")
+            # Opções para Foto NOK: Arquivo, Colar Print ou Apagar
+            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="up_nok")
+            
+            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
+            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok", background_color="#EF4444")
+            
+            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="del_nok")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 Processar, Centralizar e Salvar Fotos", type="primary", use_container_width=True):
+        if st.button("💾 Salvar Alterações e Atualizar Fotos", type="primary", use_container_width=True):
             dados_atualizacao_fotos = {}
             
-            if arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok)
-            if arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok)
+            # Processamento Foto OK
+            if remover_ok:
+                dados_atualizacao_fotos["foto_ok"] = None
+            elif paste_result_ok.image_data is not None:
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(900, 600))
+            elif arquivo_ok is not None:
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(900, 600))
+                
+            # Processamento Foto NOK
+            if remover_nok:
+                dados_atualizacao_fotos["foto_nok"] = None
+            elif paste_result_nok.image_data is not None:
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(900, 600))
+            elif arquivo_nok is not None:
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(900, 600))
                 
             if dados_atualizacao_fotos:
                 try:
                     supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
-                    st.success("🎉 Imagens centralizadas e atualizadas com sucesso!")
+                    st.success("🎉 Fotos atualizadas com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar fotos no banco: {e}")
             else:
-                st.warning("Nenhum arquivo novo foi selecionado para upload.")
+                st.warning("Nenhuma alteração foi realizada (nenhuma foto nova enviada, colada ou remoção marcada).")
 
 # --- RESTANTE DAS PÁGINAS DO MENU ---
 elif menu_opcao == "🔔 Alertas Abertos":
