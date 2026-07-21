@@ -81,9 +81,9 @@ def carregar_dados():
                 else:
                     df.at[index, 'status'] = 'EM DIA'
         
-        area_dist = df["area"].value_counts().to_dict()
-        status_dist = df["status"].value_counts().to_dict()
-        defeito_dist = df["defeito"].value_counts().to_dict()
+        area_dist = df["area"].value_counts().to_dict() if "area" in df.columns else {}
+        status_dist = df["status"].value_counts().to_dict() if "status" in df.columns else {}
+        defeito_dist = df["defeito"].value_counts().to_dict() if "defeito" in df.columns else {}
         
         df_tempo = pd.DataFrame({
             "Mês": ["Fev/26", "Mar/26", "Abr/26", "Mai/26", "Jun/26", "Jul/26"],
@@ -168,22 +168,20 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### ALERTAS EM ABERTO")
     
-    # Layout Principaldividido: Tabela à esquerda e Detalhes + Fotos à direita
     col_tabela, col_detalhes = st.columns([2.2, 1.8])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
+        aq_selecionada_visao = None
         if not df_abertos.empty:
             df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
             df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
             
-            # Seletor para escolher qual alerta auditar e ver as fotos
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver os Detalhes e Fotos:", df_abertos["id"].tolist())
         else:
             st.success("Nenhum alerta em aberto no momento!")
-            aq_selecionada_visao = None
 
     with col_detalhes:
         if aq_selecionada_visao:
@@ -209,15 +207,23 @@ if menu_opcao == "🏠 Visão Geral":
                 f_col1, f_col2 = st.columns(2)
                 with f_col1:
                     st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px;'>FOTO OK</div>", unsafe_allow_html=True)
-                    if item.get('foto_ok') and pd.notnull(item['foto_ok']):
-                        st.image(item['foto_ok'], use_column_width=True)
+                    foto_ok_val = item.get('foto_ok')
+                    if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
+                        try:
+                            st.image(str(foto_ok_val), use_column_width=True)
+                        except:
+                            st.warning("Erro ao carregar imagem OK.")
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
                         
                 with f_col2:
                     st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px;'>FOTO NOK</div>", unsafe_allow_html=True)
-                    if item.get('foto_nok') and pd.notnull(item['foto_nok']):
-                        st.image(item['foto_nok'], use_column_width=True)
+                    foto_nok_val = item.get('foto_nok')
+                    if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
+                        try:
+                            st.image(str(foto_nok_val), use_column_width=True)
+                        except:
+                            st.warning("Erro ao carregar imagem NOK.")
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
 
@@ -243,11 +249,13 @@ if menu_opcao == "🏠 Visão Geral":
 
     with g_col3:
         with st.container(border=True):
-            if defect_dist := defeito_dist:
-                df_def = pd.DataFrame(list(defect_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
+            if defeito_dist:
+                df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
                 fig3 = go.Figure(go.Bar(x=df_def['Qtd'], y=df_def['Defeito'], orientation='h', marker_color='#0E4687', text=df_def['Qtd'], textposition='outside'))
                 fig3.update_layout(title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=30, t=50, b=10), height=250, xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False, tickfont=dict(size=11)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3, use_column_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
+            else:
+                st.info("Sem dados de defeitos.")
 
     with g_col4:
         with st.container(border=True):
@@ -255,7 +263,7 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4 = go.Figure()
                 fig4.add_trace(go.Scatter(x=df_tempo["Mês"], y=df_tempo["Dias"], mode='lines+markers+text', text=df_tempo["Dias"], textposition='top center', line=dict(color='#0284C7', width=2.5)))
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4, use_column_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
     # =========================================================================
     # ====== FLUXO DE TRATATIVAS NA TELA INICIAL (VISÃO GERAL) ========
@@ -369,10 +377,16 @@ elif menu_opcao == "➕ Inserir Tratativa":
         f_c1, f_c2 = st.columns(2)
         with f_c1:
             st.caption("Foto OK")
-            if item_aq.get('foto_ok'): st.image(item_aq['foto_ok'], use_column_width=True)
+            fo = item_aq.get('foto_ok')
+            if fo and pd.notnull(fo) and str(fo).strip() != "":
+                try: st.image(str(fo), use_column_width=True)
+                except: pass
         with f_c2:
             st.caption("Foto NOK")
-            if item_aq.get('foto_nok'): st.image(item_aq['foto_nok'], use_column_width=True)
+            fn = item_aq.get('foto_nok')
+            if fn and pd.notnull(fn) and str(fn).strip() != "":
+                try: st.image(str(fn), use_column_width=True)
+                except: pass
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase e Fotos")
