@@ -113,7 +113,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(900, 700)):
+def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 800)):
     if imagem_input is not None:
         try:
             if isinstance(imagem_input, Image.Image):
@@ -124,7 +124,6 @@ def processar_e_converter_imagem(imagem_input, tamanho_alvo=(900, 700)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Preenchimento total estilo capa (ImageOps.fit), garantindo que ocupe todo o espaço sem sobras nas laterais
             img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             
             buffered = BytesIO()
@@ -217,7 +216,7 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### ALERTAS EM ABERTO")
     
-    col_tabela, col_detalhes = st.columns([2.2, 1.8])
+    col_tabela, col_detalhes = st.columns([2.0, 2.0])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -245,28 +244,28 @@ if menu_opcao == "🏠 Visão Geral":
             """, unsafe_allow_html=True)
             
             with st.container(border=True):
-                st.markdown(f"📌 **Defeito:** `{item['defeito']}`")
-                st.markdown(f"📁 **Produto:** `{item['produto']}` | 📦 **Lote:** `{item['lote']}`")
-                st.markdown(f"🏢 **Área:** `{item['area']}` | 👤 **Resp.:** `{item['responsavel']}`")
-                st.markdown(f"🕒 **Prazo:** {item['prazo']} | 🛡️ **Status:** <span style='background-color: {status_cor}; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;'>{item['status']}</span>", unsafe_allow_html=True)
+                st.markdown(f"📌 **Defeito:** `{item['defeito']}` | 📁 **Prod.:** `{item['produto']}` | 📦 **Lote:** `{item['lote']}`")
+                st.markdown(f"🏢 **Área:** `{item['area']}` | 👤 **Resp.:** `{item['responsavel']}` | 🕒 **Prazo:** {item['prazo']} | 🛡️ **Status:** <span style='background-color: {status_cor}; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;'>{item['status']}</span>", unsafe_allow_html=True)
                 
                 st.divider()
-                st.markdown("🖼️ **REGISTRO FOTOGRÁFICO (PADRÃO OK / NOK)**")
+                st.markdown("🖼️ **REGISTRO FOTOGRÁFICO GRANDE (PADRÃO OK / NOK)**")
                 
                 f_col1, f_col2 = st.columns(2)
                 with f_col1:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO OK</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #10B981; background-color: #ECFDF5; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🟢 FOTO OK</div>", unsafe_allow_html=True)
                     foto_ok_val = item.get('foto_ok')
                     if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                        # Altura grande (380px) para máxima visibilidade dos operadores
+                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #10B981;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
                         
                 with f_col2:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO NOK</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #EF4444; background-color: #FEE2E2; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🔴 FOTO NOK</div>", unsafe_allow_html=True)
                     foto_nok_val = item.get('foto_nok')
                     if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                        # Altura grande (380px) para máxima visibilidade dos operadores
+                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 380px; object-fit: cover; border-radius: 6px; border: 2px solid #EF4444;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
 
@@ -422,12 +421,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
             st.caption("Foto OK")
             fo = item_aq.get('foto_ok')
             if fo and pd.notnull(fo) and str(fo).strip() != "":
-                st.markdown(f'<img src="{fo}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fo}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
         with f_c2:
             st.caption("Foto NOK")
             fn = item_aq.get('foto_nok')
             if fn and pd.notnull(fn) and str(fn).strip() != "":
-                st.markdown(f'<img src="{fn}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fn}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
@@ -638,17 +637,17 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if remover_ok:
                 dados_atualizacao_fotos["foto_ok"] = None
             elif paste_result_ok.image_data is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(900, 700))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(1000, 800))
             elif arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(900, 700))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
                 
             # Processamento Foto NOK
             if remover_nok:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(900, 700))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
             elif arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(900, 700))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1000, 800))
                 
             if dados_atualizacao_fotos:
                 try:
