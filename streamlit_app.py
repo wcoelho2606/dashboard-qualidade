@@ -260,24 +260,18 @@ if menu_opcao == "🏠 Visão Geral":
                 
                 f_col1, f_col2 = st.columns(2)
                 with f_col1:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px;'>FOTO OK</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO OK</div>", unsafe_allow_html=True)
                     foto_ok_val = item.get('foto_ok')
                     if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        try:
-                            st.image(str(foto_ok_val), use_column_width=True)
-                        except:
-                            st.warning("Erro ao carregar imagem OK.")
+                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
                         
                 with f_col2:
-                    st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px;'>FOTO NOK</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO NOK</div>", unsafe_allow_html=True)
                     foto_nok_val = item.get('foto_nok')
                     if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        try:
-                            st.image(str(foto_nok_val), use_column_width=True)
-                        except:
-                            st.warning("Erro ao carregar imagem NOK.")
+                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
 
@@ -625,18 +619,23 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
             tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
             if tem_foto_ok:
-                try:
-                    st.image(str(item_foto['foto_ok']), caption="Foto OK Atual", use_column_width=True)
-                except:
-                    pass
+                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
-            # Opções para Foto OK: Arquivo, Colar Print ou Apagar
             arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="up_ok")
-            
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
             paste_result_ok = paste_image_button(label="📋 Colar Foto OK (Ctrl+V)", key="paste_ok", background_color="#10B981")
-            
             remover_ok = st.checkbox("🗑️ Remover/Apagar Foto OK atual", key="del_ok")
+
+        with col_up2:
+            st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
+            tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
+            if tem_foto_nok:
+                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
+            
+            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="up_nok")
+            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
+            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok", background_color="#EF4444")
+            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="del_nok")
 
         with col_up2:
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
