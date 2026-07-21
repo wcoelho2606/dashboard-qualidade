@@ -7,7 +7,7 @@ from datetime import datetime, date
 from supabase import create_client
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 from streamlit_paste_button import paste_image_button
 
 # Configuração da página executiva
@@ -113,7 +113,7 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1200, 900)):
+def processar_e_converter_imagem(imagem_input, tamanho_alvo=(900, 700)):
     if imagem_input is not None:
         try:
             if isinstance(imagem_input, Image.Image):
@@ -124,15 +124,11 @@ def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1200, 900)):
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            img.thumbnail(tamanho_alvo, Image.Resampling.LANCZOS)
-            fundo = Image.new("RGB", tamanho_alvo, (255, 255, 255))
-            
-            pos_x = (tamanho_alvo[0] - img.width) // 2
-            pos_y = (tamanho_alvo[1] - img.height) // 2
-            fundo.paste(img, (pos_x, pos_y))
+            # Preenchimento total estilo capa (ImageOps.fit), garantindo que ocupe todo o espaço sem sobras nas laterais
+            img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             
             buffered = BytesIO()
-            fundo.save(buffered, format="JPEG", quality=95)
+            img_processada.save(buffered, format="JPEG", quality=95)
             base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
             return f"data:image/jpeg;base64,{base64_str}"
         except Exception as e:
@@ -262,7 +258,7 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; color: #10B981; background-color: #ECFDF5; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO OK</div>", unsafe_allow_html=True)
                     foto_ok_val = item.get('foto_ok')
                     if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto OK cadastrada.")
                         
@@ -270,7 +266,7 @@ if menu_opcao == "🏠 Visão Geral":
                     st.markdown("<div style='text-align: center; font-weight: bold; color: #EF4444; background-color: #FEE2E2; padding: 4px; border-radius: 4px; margin-bottom: 5px;'>FOTO NOK</div>", unsafe_allow_html=True)
                     foto_nok_val = item.get('foto_nok')
                     if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
                     else:
                         st.info("Nenhuma foto NOK cadastrada.")
 
@@ -426,12 +422,12 @@ elif menu_opcao == "➕ Inserir Tratativa":
             st.caption("Foto OK")
             fo = item_aq.get('foto_ok')
             if fo and pd.notnull(fo) and str(fo).strip() != "":
-                st.markdown(f'<img src="{fo}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fo}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
         with f_c2:
             st.caption("Foto NOK")
             fn = item_aq.get('foto_nok')
             if fn and pd.notnull(fn) and str(fn).strip() != "":
-                st.markdown(f'<img src="{fn}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{fn}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
@@ -616,7 +612,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
             tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
             if tem_foto_ok:
-                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_ok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
@@ -627,7 +623,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
             tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
             if tem_foto_nok:
-                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
+                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
             
             arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
@@ -642,17 +638,17 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if remover_ok:
                 dados_atualizacao_fotos["foto_ok"] = None
             elif paste_result_ok.image_data is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(1200, 900))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(900, 700))
             elif arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1200, 900))
+                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(900, 700))
                 
             # Processamento Foto NOK
             if remover_nok:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1200, 900))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(900, 700))
             elif arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1200, 900))
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(900, 700))
                 
             if dados_atualizacao_fotos:
                 try:
