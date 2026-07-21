@@ -314,11 +314,11 @@ if menu_opcao == "🏠 Visão Geral":
                 """, unsafe_allow_html=True)
 
 # =======================================================
-# ====== 2. TELA: INSERIR TRATATIVA (COM OS NOVOS CAMPOS) =
+# ====== 2. TELA: INSERIR TRATATIVA (COM BLOQUEIO PROGRESSIVO) =
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
-    st.title("➕ FLUXO DE TRATATIVAS E REGISTRO DETALHADO")
-    st.markdown("Gerencie as etapas, preencha as análises, causas, ações e responsáveis por fase.")
+    st.title("➕ FLUXO DE TRATATIVAS E REGISTRO PROGRESSIVO")
+    st.markdown("Preencha as informações da fase atual. As etapas anteriores ficam travadas como histórico.")
     st.markdown("---")
     
     lista_aqs = df_alertas["id"].tolist()
@@ -361,67 +361,103 @@ elif menu_opcao == "➕ Inserir Tratativa":
         st.write(f"**Responsável Principal:** `{item_aq['responsavel']}`")
         st.write(f"**Prazo:** {item_aq['prazo']}")
         st.info(f"**Status Atual:** {item_aq['status']}")
-        
-        # Exibição dos dados salvos anteriormente
-        if item_aq.get('causa_raiz'):
-            st.markdown(f"🔍 **Causa Raiz Registrada:** {item_aq['causa_raiz']}")
-        if item_aq.get('acao_definida'):
-            st.markdown(f"📋 **Ação Tomada:** {item_aq['acao_definida']}")
-        if item_aq.get('validador_qualidade'):
-            st.markdown(f"✔️ **Validador:** {item_aq['validador_qualidade']}")
 
     with col_controles:
-        st.subheader("⚙️ Detalhamento e Avanço de Etapas")
+        st.subheader("⚙️ Detalhamento por Fase")
         
-        # Formulário interativo para preencher os dados de cada etapa com base na fase atual
-        with st.form("form_detalhes_tratativa"):
+        # Recupera valores atuais do banco
+        causa_db = item_aq.get("causa_raiz") or ""
+        acao_db = item_aq.get("acao_definida") or ""
+        resp_impl_db = item_aq.get("responsavel_implementacao") or item_aq['responsavel']
+        validador_db = item_aq.get("validador_qualidade") or "Qualidade"
+
+        with st.form("form_tratativa_progressiva"):
             st.markdown(f"**Fase Atual do Alerta:** Etapa {etapa_atual}")
             
-            causa_atual = item_aq.get("causa_raiz") or ""
-            acao_atual = item_aq.get("acao_definida") or ""
-            resp_impl_atual = item_aq.get("responsavel_implementacao") or item_aq['responsavel']
-            validador_atual = item_aq.get("validador_qualidade") or "Qualidade"
-            
-            nova_causa = st.text_area("🔍 Etapa 2 - Causa Raiz / Análise do Problema:", value=causa_atual, placeholder="Descreva a causa raiz identificada pelo responsável...")
-            nova_acao = st.text_area("📋 Etapa 3 - Ação Definida / Corretiva Tomada:", value=acao_atual, placeholder="Descreva o plano de ação ou a tratativa realizada...")
-            novo_resp_impl = st.text_input("⚙️ Etapa 4 - Responsável pela Implementação:", value=resp_impl_atual)
-            novo_validador = st.text_input("✔️ Etapa 5 - Validador (Qualidade):", value=validador_atual)
-            
-            salvar_detalhes = st.form_submit_button("💾 Salvar Informações das Etapas")
-            if salvar_detalhes:
+            # --- ETAPA 2 ---
+            if etapa_atual >= 2:
+                st.markdown("---")
+                st.markdown("🔍 **Etapa 2 - Causa Raiz / Análise do Problema**")
+                st.caption(f"Responsável: {item_aq['responsavel']}")
+                if etapa_atual == 2:
+                    nova_causa = st.text_area("Descreva a causa raiz identificada:", value=causa_db)
+                else:
+                    st.info(causa_db if causa_db else "*(Nenhuma causa informada)*")
+                    nova_causa = causa_db
+            else:
+                nova_causa = causa_db
+
+            # --- ETAPA 3 ---
+            if etapa_atual >= 3:
+                st.markdown("---")
+                st.markdown("📋 **Etapa 3 - Ação Definida / Corretiva Tomada**")
+                st.caption(f"Responsável: {item_aq['responsavel']}")
+                if etapa_atual == 3:
+                    nova_acao = st.text_area("Descreva o plano de ação:", value=acao_db)
+                else:
+                    st.info(acao_db if acao_db else "*(Nenhuma ação informada)*")
+                    nova_acao = acao_db
+            else:
+                nova_acao = acao_db
+
+            # --- ETAPA 4 ---
+            if etapa_atual >= 4:
+                st.markdown("---")
+                st.markdown("⚙️ **Etapa 4 - Implementação da Correção**")
+                if etapa_atual == 4:
+                    novo_resp_impl = st.text_input("Responsável pela Implementação:", value=resp_impl_db)
+                else:
+                    st.info(f"Responsável: {resp_impl_db}")
+                    novo_resp_impl = resp_impl_db
+            else:
+                novo_resp_impl = resp_impl_db
+
+            # --- ETAPA 5 ---
+            if etapa_atual >= 5:
+                st.markdown("---")
+                st.markdown("✔️ **Etapa 5 - Validação da Qualidade**")
+                if etapa_atual == 5:
+                    novo_validador = st.text_input("Nome do Validador:", value=validador_db)
+                else:
+                    st.info(f"Validador: {validador_db}")
+                    novo_validador = validador_db
+            else:
+                novo_validador = validador_db
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            salvar_progresso = st.form_submit_button("💾 Salvar Alterações da Fase Atual", use_container_width=True)
+            if salvar_progresso:
                 supabase.table("alertas").update({
                     "causa_raiz": nova_causa,
                     "acao_definida": nova_acao,
                     "responsavel_implementacao": novo_resp_impl,
                     "validador_qualidade": novo_validador
                 }).eq("id", aq_selecionada).execute()
-                st.success("Informações salvas com sucesso!")
+                st.success("Dados salvos com sucesso!")
                 st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
+        col_B1, col_B2 = st.columns(2)
+        with col_B1:
             if etapa_atual < 6:
                 if st.button("🚀 Avançar Etapa Atual", use_container_width=True, type="primary"):
                     nova_etapa = etapa_atual + 1
                     agora_iso = datetime.now().isoformat()
-                    
-                    dados_update = {
+                    dados_up = {
                         "etapa_atual": nova_etapa,
                         f"data_etapa_{nova_etapa}": agora_iso
                     }
                     if nova_etapa == 6:
-                        dados_update["status"] = "ENCERRADO"
-                        dados_update["dias_restantes"] = 0
+                        dados_up["status"] = "ENCERRADO"
+                        dados_up["dias_restantes"] = 0
                     
-                    supabase.table("alertas").update(dados_update).eq("id", aq_selecionada).execute()
+                    supabase.table("alertas").update(dados_up).eq("id", aq_selecionada).execute()
                     st.success(f"Alerta avançado para a etapa {nova_etapa}!")
                     st.rerun()
             else:
                 st.success("Fluxo Concluído!")
 
-        with col_btn2:
+        with col_B2:
             if etapa_atual == 6:
                 if st.button("🔄 Reabrir Alerta", use_container_width=True):
                     dias_atuais = (item_aq['prazo'] - date.today()).days
