@@ -314,11 +314,11 @@ if menu_opcao == "🏠 Visão Geral":
                 """, unsafe_allow_html=True)
 
 # =======================================================
-# ====== 2. TELA: INSERIR TRATATIVA (COM BLOQUEIO PROGRESSIVO) =
+# ====== 2. TELA: INSERIR TRATATIVA (COM BOTÃO VOLTAR ETAPA) =
 # =======================================================
 elif menu_opcao == "➕ Inserir Tratativa":
     st.title("➕ FLUXO DE TRATATIVAS E REGISTRO PROGRESSIVO")
-    st.markdown("Preencha as informações da fase atual. As etapas anteriores ficam travadas como histórico.")
+    st.markdown("Preencha as informações da fase atual ou retorne uma etapa caso necessário.")
     st.markdown("---")
     
     lista_aqs = df_alertas["id"].tolist()
@@ -365,11 +365,17 @@ elif menu_opcao == "➕ Inserir Tratativa":
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
         
-        # Recupera valores atuais do banco
-        causa_db = item_aq.get("causa_raiz") or ""
-        acao_db = item_aq.get("acao_definida") or ""
-        resp_impl_db = item_aq.get("responsavel_implementacao") or item_aq['responsavel']
-        validador_db = item_aq.get("validador_qualidade") or "Qualidade"
+        causa_db = item_aq.get("causa_raiz") if pd.notnull(item_aq.get("causa_raiz")) else ""
+        if causa_db == "nan": causa_db = ""
+        
+        acao_db = item_aq.get("acao_definida") if pd.notnull(item_aq.get("acao_definida")) else ""
+        if acao_db == "nan": acao_db = ""
+        
+        resp_impl_db = item_aq.get("responsavel_implementacao") if pd.notnull(item_aq.get("responsavel_implementacao")) else item_aq['responsavel']
+        if resp_impl_db == "nan": resp_impl_db = item_aq['responsavel']
+        
+        validador_db = item_aq.get("validador_qualidade") if pd.notnull(item_aq.get("validador_qualidade")) else "Qualidade"
+        if validador_db == "nan": validador_db = "Qualidade"
 
         with st.form("form_tratativa_progressiva"):
             st.markdown(f"**Fase Atual do Alerta:** Etapa {etapa_atual}")
@@ -437,8 +443,32 @@ elif menu_opcao == "➕ Inserir Tratativa":
                 st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-        col_B1, col_B2 = st.columns(2)
+        
+        # Botões de Ação de Avançar e Voltar Etapa lado a lado
+        col_B1, col_B2, col_B3 = st.columns([1.5, 1.5, 1])
+        
         with col_B1:
+            if etapa_atual > 1:
+                if st.button("⬅️ Voltar Etapa Anterior", use_container_width=True):
+                    etapa_anterior = etapa_atual - 1
+                    dias_atuais = (item_aq['prazo'] - date.today()).days
+                    
+                    # Recalcula status caso estivesse encerrado e volte
+                    status_calculado = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
+                    
+                    dados_volta = {
+                        "etapa_atual": etapa_anterior,
+                        "status": status_calculado,
+                        f"data_etapa_{etapa_atual}": None # Limpa a data da etapa que foi desfeita
+                    }
+                    if etapa_atual == 6:
+                        dados_volta["dias_restantes"] = dias_atuais
+
+                    supabase.table("alertas").update(dados_volta).eq("id", aq_selecionada).execute()
+                    st.warning(f"Alerta retornado para a Etapa {etapa_anterior}!")
+                    st.rerun()
+
+        with col_B2:
             if etapa_atual < 6:
                 if st.button("🚀 Avançar Etapa Atual", use_container_width=True, type="primary"):
                     nova_etapa = etapa_atual + 1
@@ -457,9 +487,9 @@ elif menu_opcao == "➕ Inserir Tratativa":
             else:
                 st.success("Fluxo Concluído!")
 
-        with col_B2:
+        with col_B3:
             if etapa_atual == 6:
-                if st.button("🔄 Reabrir Alerta", use_container_width=True):
+                if st.button("🔄 Reabrir", use_container_width=True):
                     dias_atuais = (item_aq['prazo'] - date.today()).days
                     status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
                     supabase.table("alertas").update({
