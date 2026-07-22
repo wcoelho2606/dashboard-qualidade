@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada (Menu Lateral Azul Escuro Compacto + Componentes)
+# Estilização CSS customizada (Menu Lateral Azul Escuro Corrigido + Legibilidade Total)
 st.markdown("""
     <style>
         /* Fundo principal da aplicação */
@@ -31,11 +31,16 @@ st.markdown("""
             color: #ffffff;
             padding-top: 10px;
         }
-        [data-testid="stSidebar"] .stRadio label {
-            color: #E2E8F0 !important;
-            font-size: 14px;
-            font-weight: 500;
+        
+        /* CORREÇÃO DO TEXTO DO MENU: Força a cor branca e tamanho legível */
+        [data-testid="stSidebar"] .stRadio label, 
+        [data-testid="stSidebar"] .stRadio p, 
+        [data-testid="stSidebar"] .stRadio span {
+            color: #FFFFFF !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
         }
+        
         [data-testid="stSidebar"] hr {
             border-color: #334155;
         }
@@ -178,33 +183,37 @@ with st.sidebar:
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
     st.markdown("---")
     
+    opcoes_menu = [
+        "🏠 Visão Geral", 
+        "⚙️ Inserir Tratativa",
+        "➕ Novo Alerta",
+        "🖼️ Gerenciar Fotos",
+        "🔔 Alertas Abertos", 
+        "⏰ Alertas Vencidos", 
+        "✔️ Encerrados", 
+        "📊 Indicadores", 
+        "📈 Análises", 
+        "📄 Relatórios"
+    ]
+    
     menu_opcao = st.radio(
         "Navegação",
-        [
-            "🏠 Visão Geral", 
-            "⚙️ Inserir Tratativa",
-            "➕ Novo Alerta",
-            "🖼️ Gerenciar Fotos",
-            "🔔 Alertas Abertos", 
-            "⏰ Alertas Vencidos", 
-            "✔️ Encerrados", 
-            "📊 Indicadores", 
-            "📈 Análises", 
-            "📄 Relatórios"
-        ],
+        opcoes_menu,
         index=0,
         label_visibility="collapsed"
     )
     
     st.markdown("---")
     
-    # Caixa de destaque no rodapé do menu (estilo da sua imagem de referência)
-    st.markdown("""
-        <div style="background-color: #1E293B; border: 1px solid #334155; padding: 12px; border-radius: 8px; text-align: left; color: white;">
-            <div style="font-size: 13px; font-weight: bold;">📄 Novo Alerta de Qualidade</div>
-            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Clique na opção acima para cadastrar um novo alerta.</div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Botão de Atalho para Novo Alerta no Rodapé do Sidebar
+    if st.button("➕ Novo Alerta de Qualidade\n\nClique para cadastrar um novo alerta.", use_container_width=True):
+        st.session_state["menu_override"] = "➕ Novo Alerta"
+        st.rerun()
+
+    # Tratamento de redirecionamento caso o botão seja acionado
+    if "menu_override" in st.session_state:
+        menu_opcao = st.session_state["menu_override"]
+        del st.session_state["menu_override"]
     
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<small style='color: #64748B;'>Painel Sincronizado</small>", unsafe_allow_html=True)
@@ -671,8 +680,8 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
                 dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
-            elif arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1000, 800))
+            elif arquivo_ok is not None:
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
                 
             if dados_atualizacao_fotos:
                 try:
