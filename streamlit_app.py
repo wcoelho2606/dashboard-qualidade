@@ -177,16 +177,17 @@ def gerar_proximo_id(df):
     proximo_num = (max(numeros) + 1) if numeros else 1
     return f"{prefixo}{proximo_num:03d}"
 
-# --- MENU LATERAL DE NAVEGAÇÃO COMPACTO E COM EMOJIS ---
+# --- MENU LATERAL DE NAVEGAÇÃO REORGANIZADO ---
 with st.sidebar:
     st.markdown("<h3 style='color: white; margin-bottom: 0px;'>🛡️ GESTÃO DE ALERTAS</h3>", unsafe_allow_html=True)
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
     st.markdown("---")
     
+    # Ordem ajustada: 'Novo Alerta' logo abaixo de 'Visão Geral'
     opcoes_menu = [
         "🏠 Visão Geral", 
-        "⚙️ Inserir Tratativa",
         "➕ Novo Alerta",
+        "⚙️ Inserir Tratativa",
         "🖼️ Gerenciar Fotos",
         "🔔 Alertas Abertos", 
         "⏰ Alertas Vencidos", 
@@ -204,16 +205,6 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    
-    # Card visual idêntico à referência (com fundo escuro e perfeitamente legível)
-    st.markdown("""
-        <div style="background-color: #1E293B; border: 1px solid #334155; padding: 12px; border-radius: 8px; text-align: left; color: white;">
-            <div style="font-size: 13px; font-weight: bold; color: #FFFFFF;">📄 Novo Alerta de Qualidade</div>
-            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Utilize a opção <b>➕ Novo Alerta</b> no menu acima para cadastrar uma nova ocorrência.</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<small style='color: #64748B;'>Painel Sincronizado</small>", unsafe_allow_html=True)
 
 if df_alertas.empty:
