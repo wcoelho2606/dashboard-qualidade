@@ -18,11 +18,29 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada corporativa
+# Estilização CSS customizada (Menu Lateral Azul Escuro Compacto + Componentes)
 st.markdown("""
     <style>
+        /* Fundo principal da aplicação */
         .reportview-container { background-color: #F4F6F9; }
         h1, h2, h3 { font-family: 'Segoe UI', sans-serif; color: #1E3A8A; }
+        
+        /* Estilização da Barra Lateral (Sidebar) em Azul Escuro Profissional */
+        [data-testid="stSidebar"] {
+            background-color: #0F172A;
+            color: #ffffff;
+            padding-top: 10px;
+        }
+        [data-testid="stSidebar"] .stRadio label {
+            color: #E2E8F0 !important;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        [data-testid="stSidebar"] hr {
+            border-color: #334155;
+        }
+        
+        /* Cards de KPI */
         .kpi-card {
             border-radius: 8px; padding: 15px; color: white; text-align: center;
             font-family: 'Segoe UI', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -154,18 +172,17 @@ def gerar_proximo_id(df):
     proximo_num = (max(numeros) + 1) if numeros else 1
     return f"{prefixo}{proximo_num:03d}"
 
-# --- MENU LATERAL DE NAVEGAÇÃO ---
+# --- MENU LATERAL DE NAVEGAÇÃO COMPACTO E COM EMOJIS ---
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/shield-with-growth-chart.png", width=80)
-    st.markdown("### GESTÃO DE ALERTAS")
-    st.markdown("Supabase + Streamlit Cloud")
+    st.markdown("<h3 style='color: white; margin-bottom: 0px;'>🛡️ GESTÃO DE ALERTAS</h3>", unsafe_allow_html=True)
+    st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
     st.markdown("---")
     
     menu_opcao = st.radio(
         "Navegação",
         [
             "🏠 Visão Geral", 
-            "➕ Inserir Tratativa",
+            "⚙️ Inserir Tratativa",
             "➕ Novo Alerta",
             "🖼️ Gerenciar Fotos",
             "🔔 Alertas Abertos", 
@@ -175,10 +192,22 @@ with st.sidebar:
             "📈 Análises", 
             "📄 Relatórios"
         ],
-        index=0
+        index=0,
+        label_visibility="collapsed"
     )
+    
     st.markdown("---")
-    st.markdown("<small style='color: gray;'>Painel Sincronizado</small>", unsafe_allow_html=True)
+    
+    # Caixa de destaque no rodapé do menu (estilo da sua imagem de referência)
+    st.markdown("""
+        <div style="background-color: #1E293B; border: 1px solid #334155; padding: 12px; border-radius: 8px; text-align: left; color: white;">
+            <div style="font-size: 13px; font-weight: bold;">📄 Novo Alerta de Qualidade</div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Clique na opção acima para cadastrar um novo alerta.</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<small style='color: #64748B;'>Painel Sincronizado</small>", unsafe_allow_html=True)
 
 if df_alertas.empty:
     st.warning("Aguardando carregamento ou sem dados cadastrados no Supabase.")
@@ -337,21 +366,17 @@ if menu_opcao == "🏠 Visão Geral":
 
         html_esteira = '<div class="fluxo-container">'
         for idx, p in enumerate(passos_fluxo):
-            # Define cores e estilos com base no status do passo
             if etapa_visao == 6 or p["num"] < etapa_visao:
-                # Concluído (Verde)
                 borda = "#10B981"
                 bg = "#ECFDF5"
                 cor_texto = "#065F46"
                 emoji_icone = "✅"
             elif p["num"] == etapa_visao:
-                # Atual / Em andamento (Azul / Amarelo vivo)
                 borda = "#3B82F6"
                 bg = "#EFF6FF"
                 cor_texto = "#1E40AF"
                 emoji_icone = p["emoji"]
             else:
-                # Pendente / Futuro (Cinza)
                 borda = "#D1D5DB"
                 bg = "#F9FAFB"
                 cor_texto = "#9CA3AF"
@@ -367,7 +392,6 @@ if menu_opcao == "🏠 Visão Geral":
                     <div style="font-size: 11px; color: #6B7280; line-height: 1.2;">{p['data']}</div>
                 </div>
             """
-            # Adiciona a seta entre os passos (exceto no último)
             if idx < len(passos_fluxo) - 1:
                 html_esteira += '<div style="color: #9CA3AF; font-size: 18px; font-weight: bold; margin-bottom: 30px;">➔</div>'
 
@@ -377,7 +401,7 @@ if menu_opcao == "🏠 Visão Geral":
 # =======================================================
 # ====== 2. TELA: INSERIR TRATATIVA =====================
 # =======================================================
-elif menu_opcao == "➕ Inserir Tratativa":
+elif menu_opcao == "⚙️ Inserir Tratativa":
     st.title("➕ FLUXO DE TRATATIVAS E REGISTRO")
     st.markdown("Preencha ou ajuste os dados das fases alcançadas. Volte etapas caso necessário.")
     st.markdown("---")
