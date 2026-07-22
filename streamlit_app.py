@@ -183,7 +183,6 @@ with st.sidebar:
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # Ordem ajustada: 'Novo Alerta' logo abaixo de 'Visão Geral'
     opcoes_menu = [
         "🏠 Visão Geral", 
         "➕ Novo Alerta",
@@ -397,7 +396,57 @@ if menu_opcao == "🏠 Visão Geral":
         st.markdown(html_esteira, unsafe_allow_html=True)
 
 # =======================================================
-# ====== 2. TELA: INSERIR TRATATIVA =====================
+# ====== 2. TELA: NOVO ALERTA ===========================
+# =======================================================
+elif menu_opcao == "➕ Novo Alerta":
+    st.title("➕ CADASTRAR NOVO ALERTA")
+    st.markdown("---")
+    
+    proximo_id_sugerido = gerar_proximo_id(df_alertas)
+    
+    with st.form("form_novo_alerta", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            id_alerta = st.text_input("Nº do Alerta (ID - Gerado Automaticamente)", value=proximo_id_sugerido)
+            produto = st.text_input("Código do Produto", placeholder="Ex: 31.9294.35.0")
+            lote = st.text_input("Lote", placeholder="Ex: 474950")
+            defeito = st.text_input("Defeito Detectado", placeholder="Ex: Peças com deformação")
+        with col2:
+            area = st.selectbox("Área Responsável", ["Produção", "Ferramentaria", "Processo", "Injeção", "Qualidade"])
+            responsavel = st.text_input("Nome do Responsável", placeholder="Ex: João Silva")
+            prazo = st.date_input("Prazo para Ação", value=date.today())
+            status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO", "ENCERRADO"])
+            
+        submetido = st.form_submit_button("Gravar Ocorrência no Banco")
+        if submetido:
+            if not id_alerta or not produto or not lote or not defeito or not responsavel:
+                st.warning("⚠️ Preencha todos os campos obrigatórios!")
+            else:
+                dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
+                etapa_inicial = 6 if status == "ENCERRADO" else 1
+                agora_iso = datetime.now().isoformat()
+                
+                novo_registro = {
+                    "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
+                    "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
+                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
+                    "data_etapa_1": agora_iso,
+                    "data_etapa_2": agora_iso,
+                    "responsavel_implementacao": responsavel,
+                    "validador_qualidade": "Qualidade"
+                }
+                if etapa_inicial == 6:
+                    novo_registro["data_etapa_6"] = agora_iso
+
+                try:
+                    supabase.table("alertas").insert(novo_registro).execute()
+                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso! Agora adicione as fotos no menu 'Gerenciar Fotos'.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+
+# =======================================================
+# ====== 3. TELA: INSERIR TRATATIVA =====================
 # =======================================================
 elif menu_opcao == "⚙️ Inserir Tratativa":
     st.title("➕ FLUXO DE TRATATIVAS E REGISTRO")
@@ -557,56 +606,6 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                     st.rerun()
 
 # =======================================================
-# ====== 3. TELA: NOVO ALERTA ===========================
-# =======================================================
-elif menu_opcao == "➕ Novo Alerta":
-    st.title("➕ CADASTRAR NOVO ALERTA")
-    st.markdown("---")
-    
-    proximo_id_sugerido = gerar_proximo_id(df_alertas)
-    
-    with st.form("form_novo_alerta", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            id_alerta = st.text_input("Nº do Alerta (ID - Gerado Automaticamente)", value=proximo_id_sugerido)
-            produto = st.text_input("Código do Produto", placeholder="Ex: 31.9294.35.0")
-            lote = st.text_input("Lote", placeholder="Ex: 474950")
-            defeito = st.text_input("Defeito Detectado", placeholder="Ex: Peças com deformação")
-        with col2:
-            area = st.selectbox("Área Responsável", ["Produção", "Ferramentaria", "Processo", "Injeção", "Qualidade"])
-            responsavel = st.text_input("Nome do Responsável", placeholder="Ex: João Silva")
-            prazo = st.date_input("Prazo para Ação", value=date.today())
-            status = st.selectbox("Status Inicial", ["EM DIA", "PRÓX. DO PRAZO", "VENCIDO", "ENCERRADO"])
-            
-        submetido = st.form_submit_button("Gravar Ocorrência no Banco")
-        if submetido:
-            if not id_alerta or not produto or not lote or not defeito or not responsavel:
-                st.warning("⚠️ Preencha todos os campos obrigatórios!")
-            else:
-                dias_restantes = 0 if status == "ENCERRADO" else (prazo - date.today()).days
-                etapa_inicial = 6 if status == "ENCERRADO" else 1
-                agora_iso = datetime.now().isoformat()
-                
-                novo_registro = {
-                    "id": id_alerta, "produto": produto, "lote": lote, "defeito": defeito,
-                    "area": area, "responsavel": responsavel, "prazo": prazo.strftime("%Y-%m-%d"),
-                    "dias_restantes": int(dias_restantes), "status": status, "etapa_atual": etapa_inicial,
-                    "data_etapa_1": agora_iso,
-                    "data_etapa_2": agora_iso,
-                    "responsavel_implementacao": responsavel,
-                    "validador_qualidade": "Qualidade"
-                }
-                if etapa_inicial == 6:
-                    novo_registro["data_etapa_6"] = agora_iso
-
-                try:
-                    supabase.table("alertas").insert(novo_registro).execute()
-                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso! Agora adicione as fotos no menu 'Gerenciar Fotos'.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
-
-# =======================================================
 # ====== 4. TELA: GERENCIAR FOTOS =======================
 # =======================================================
 elif menu_opcao == "🖼️ Gerenciar Fotos":
@@ -682,7 +681,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             else:
                 st.warning("Nenhuma alteração foi realizada (nenhuma foto nova enviada, colada ou remoção marcada).")
 
-# --- RESTANTE DAS PÁGINAS DO MENU ---
+# --- 5. TELA: ALERTAS ABERTOS ---
 elif menu_opcao == "🔔 Alertas Abertos":
     st.title("🔔 ALERTAS EM ANDAMENTO")
     df_filtrado = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -690,6 +689,7 @@ elif menu_opcao == "🔔 Alertas Abertos":
         df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
 
+# --- 6. TELA: ALERTAS VENCIDOS ---
 elif menu_opcao == "⏰ Alertas Vencidos":
     st.title("⏰ ALERTAS VENCIDOS E EM ATRASO")
     df_filtrado = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
@@ -699,6 +699,7 @@ elif menu_opcao == "⏰ Alertas Vencidos":
     else:
         st.success("Excelente! Não existem alertas vencidos no momento.")
 
+# --- 7. TELA: ENCERRADOS ---
 elif menu_opcao == "✔️ Encerrados":
     st.title("✔️ HISTÓRICO DE ALERTAS ENCERRADOS")
     df_filtrado = df_alertas[df_alertas['status'] == 'ENCERRADO'].copy()
@@ -708,6 +709,7 @@ elif menu_opcao == "✔️ Encerrados":
     else:
         st.info("Nenhum alerta encerrado no momento.")
 
+# --- 8. TELA: INDICADORES ---
 elif menu_opcao == "📊 Indicadores":
     st.title("📊 PAINEL GERAL DE INDICADORES (KPIs)")
     col_g1, col_g2 = st.columns(2)
@@ -715,3 +717,92 @@ elif menu_opcao == "📊 Indicadores":
         st.plotly_chart(px.bar(df_alertas, x="area", color="status", title="Volume por Área", barmode="stack"), use_container_width=True)
     with col_g2:
         st.plotly_chart(px.histogram(df_alertas, x="status", title="Distribuição por Status", color="status"), use_container_width=True)
+
+# =======================================================
+# ====== 9. TELA: ANÁLISES (DIAGRAMA DE PARETO 80/20) ===
+# =======================================================
+elif menu_opcao == "📈 Análises":
+    st.title("📈 ANÁLISE DE PARETO (PRINCÍPIO 80/20)")
+    st.markdown("Identifique os principais tipos de defeitos que geram o maior impacto na operação de qualidade.")
+    st.markdown("---")
+
+    if not df_alertas.empty and "defeito" in df_alertas.columns:
+        # Agrupamento para Curva de Pareto
+        df_pareto = df_alertas["defeito"].value_counts().reset_index()
+        df_pareto.columns = ["Defeito", "Quantidade"]
+        df_pareto = df_pareto.sort_values(by="Quantidade", ascending=False)
+        
+        df_pareto["Acumulado (%)"] = df_pareto["Quantidade"].cumsum() / df_pareto["Quantidade"].sum() * 100
+
+        fig_pareto = go.Figure()
+        
+        # Barras de Quantidade
+        fig_pareto.add_trace(go.Bar(
+            x=df_pareto["Defeito"], 
+            y=df_pareto["Quantidade"], 
+            name="Quantidade", 
+            marker_color="#0E4687",
+            yaxis="y1"
+        ))
+        
+        # Linha Acumulada 80/20
+        fig_pareto.add_trace(go.Scatter(
+            x=df_pareto["Defeito"], 
+            y=df_pareto["Acumulado (%)"], 
+            name="Acumulado (%)", 
+            mode="lines+markers", 
+            line=dict(color="#EF4444", width=3),
+            yaxis="y2"
+        ))
+
+        fig_pareto.update_layout(
+            title="<b>Diagrama de Pareto - Ocorrências por Defeito</b>",
+            xaxis=dict(title="Tipo de Defeito"),
+            yaxis=dict(title="Número de Ocorrências", side="left", showgrid=False),
+            yaxis2=dict(title="Porcentagem Acumulada (%)", side="right", overlaying="y", range=[0, 105], showgrid=False),
+            legend=dict(orientation="h", x=0.3, y=1.15),
+            margin=dict(l=40, r=40, t=60, b=40),
+            height=450,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
+
+        st.plotly_chart(fig_pareto, use_container_width=True)
+        
+        st.info("💡 **Dica de Gestão:** Os itens que se encontram antes da linha de 80% do acumulado representam as prioridades máximas para ações corretivas na engenharia e produção.")
+    else:
+        st.warning("Sem dados suficientes para gerar a análise de Pareto.")
+
+# =======================================================
+# ====== 10. TELA: RELATÓRIOS (CENTRAL DE AUDITORIA) ====
+# =======================================================
+elif menu_opcao == "📄 Relatórios":
+    st.title("📄 CENTRAL DE RELATÓRIOS E AUDITORIA")
+    st.markdown("Filtre, visualize e exporte o consolidado de todos os alertas de qualidade registrados.")
+    st.markdown("---")
+
+    if not df_alertas.empty:
+        c_f1, c_f2 = st.columns(2)
+        with c_f1:
+            status_filtro = st.multiselect("Filtrar por Status:", options=df_alertas["status"].unique().tolist(), default=df_alertas["status"].unique().tolist())
+        with c_f2:
+            area_filtro = st.multiselect("Filtrar por Área:", options=df_alertas["area"].unique().tolist(), default=df_alertas["area"].unique().tolist())
+
+        df_relatorio = df_alertas[df_alertas["status"].isin(status_filtro) & df_alertas["area"].isin(area_filtro)].copy()
+
+        st.markdown(f"**Total de registros filtrados:** `{len(df_relatorio)}`")
+        
+        # Exibição da tabela completa formatada
+        st.dataframe(df_relatorio, use_container_width=True, hide_index=True)
+
+        # Botão de exportação para CSV
+        csv_data = df_relatorio.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Baixar Relatório em Formato CSV",
+            data=csv_data,
+            file_name=f"relatorio_alertas_qualidade_{date.today()}.csv",
+            mime="text/csv",
+            type="primary"
+        )
+    else:
+        st.info("Nenhum dado disponível para relatórios.")
