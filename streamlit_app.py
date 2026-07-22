@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada (Menu Lateral Azul Escuro Corrigido + Legibilidade Total)
+# Estilização CSS customizada (Menu Lateral Azul Escuro Compacto + Legibilidade Total)
 st.markdown("""
     <style>
         /* Fundo principal da aplicação */
@@ -205,15 +205,13 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Botão de Atalho para Novo Alerta no Rodapé do Sidebar
-    if st.button("➕ Novo Alerta de Qualidade\n\nClique para cadastrar um novo alerta.", use_container_width=True):
-        st.session_state["menu_override"] = "➕ Novo Alerta"
-        st.rerun()
-
-    # Tratamento de redirecionamento caso o botão seja acionado
-    if "menu_override" in st.session_state:
-        menu_opcao = st.session_state["menu_override"]
-        del st.session_state["menu_override"]
+    # Card visual idêntico à referência (com fundo escuro e perfeitamente legível)
+    st.markdown("""
+        <div style="background-color: #1E293B; border: 1px solid #334155; padding: 12px; border-radius: 8px; text-align: left; color: white;">
+            <div style="font-size: 13px; font-weight: bold; color: #FFFFFF;">📄 Novo Alerta de Qualidade</div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Utilize a opção <b>➕ Novo Alerta</b> no menu acima para cadastrar uma nova ocorrência.</div>
+        </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<small style='color: #64748B;'>Painel Sincronizado</small>", unsafe_allow_html=True)
@@ -680,8 +678,8 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
                 dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
-            elif arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
+            elif arquivo_nok is not None:
+                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1000, 800))
                 
             if dados_atualizacao_fotos:
                 try:
