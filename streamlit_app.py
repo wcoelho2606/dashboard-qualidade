@@ -228,8 +228,8 @@ if menu_opcao == "🏠 Visão Geral":
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
             st.markdown("---")
-            st.markdown("📁 **Carregar Planilha do Alerta (.xlsx ou .xls):**")
-            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xlsx", "xls"], key="up_excel_vis")
+            st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
+            up_excel = st.file_uploader("Selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key="up_excel_vis")
             
             if up_excel:
                 try:
