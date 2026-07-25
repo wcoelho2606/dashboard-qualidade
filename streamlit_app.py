@@ -243,7 +243,8 @@ if menu_opcao == "🏠 Visão Geral":
             
             st.markdown("---")
             st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
-            up_excel = st.file_uploader("Selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key="up_excel_vis")
+            # Chave dinâmica para limpar o uploader automaticamente ao trocar de AQ
+            up_excel = st.file_uploader("Selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key=f"up_excel_{aq_selecionada_visao}")
             
             if up_excel:
                 try:
