@@ -7,7 +7,7 @@ from datetime import datetime, date
 from supabase import create_client
 import base64
 from io import BytesIO
-from PIL import Image as PILImage
+from PIL import Image, ImageOps
 import streamlit.components.v1 as components
 import zipfile
 import xml.etree.ElementTree as ET
@@ -209,15 +209,6 @@ if menu_opcao == "🏠 Visão Geral":
     
     col_tabela, col_detalhes = st.columns([1.5, 2.5])
 
-    if 'excel_cliente' not in st.session_state:
-        st.session_state.excel_cliente = ""
-    if 'excel_area' not in st.session_state:
-        st.session_state.excel_area = ""
-    if 'excel_foto_ok' not in st.session_state:
-        st.session_state.excel_foto_ok = ""
-    if 'excel_foto_nok' not in st.session_state:
-        st.session_state.excel_foto_nok = ""
-
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         aq_selecionada_visao = None
@@ -228,6 +219,27 @@ if menu_opcao == "🏠 Visão Geral":
             st.dataframe(styler, use_container_width=True, hide_index=True)
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
+            
+            # Gerenciamento de sessão para limpar dados ao trocar de AQ
+            if 'last_aq_selected' not in st.session_state:
+                st.session_state.last_aq_selected = aq_selecionada_visao
+
+            if st.session_state.last_aq_selected != aq_selecionada_visao:
+                st.session_state.last_aq_selected = aq_selecionada_visao
+                st.session_state.excel_cliente = ""
+                st.session_state.excel_area = ""
+                st.session_state.excel_foto_ok = ""
+                st.session_state.excel_foto_nok = ""
+                st.rerun()
+
+            if 'excel_cliente' not in st.session_state:
+                st.session_state.excel_cliente = ""
+            if 'excel_area' not in st.session_state:
+                st.session_state.excel_area = ""
+            if 'excel_foto_ok' not in st.session_state:
+                st.session_state.excel_foto_ok = ""
+            if 'excel_foto_nok' not in st.session_state:
+                st.session_state.excel_foto_nok = ""
             
             st.markdown("---")
             st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
@@ -244,7 +256,6 @@ if menu_opcao == "🏠 Visão Geral":
                         st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
                         st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
                         
-                        # Extração robusta via ZIP para capturar as fotos OK e NOK exatas da planilha
                         imagens_ordenadas = []
                         up_bytes = BytesIO(up_excel.getvalue())
                         with zipfile.ZipFile(up_bytes, 'r') as z:
@@ -272,10 +283,9 @@ if menu_opcao == "🏠 Visão Geral":
                                                 if img_path in z.namelist():
                                                     anchors_info.append((r_row, r_col, z.read(img_path)))
                                                     
-                                # Ordena por linha e coluna para garantir Foto OK e Foto NOK na ordem correta
                                 anchors_info.sort(key=lambda x: (x[0], x[1]))
                                 for _, _, img_bytes_data in anchors_info:
-                                    if len(img_bytes_data) > 30000: # Filtra apenas as fotos grandes (descarta ícones pequenos)
+                                    if len(img_bytes_data) > 30000:
                                         buffered = BytesIO()
                                         PILImage.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
                                         img_str = base64.b64encode(buffered.getvalue()).decode()
@@ -317,13 +327,14 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            cliente_exibir = st.session_state.excel_cliente if st.session_state.excel_cliente else item.get('cliente', '')
-            area_exibir = st.session_state.excel_area if st.session_state.excel_area else item['area']
+            # Prioriza o dado salvo no Supabase do AQ selecionado, se houver
+            cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
+            area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
 
-            foto_ok_val = st.session_state.excel_foto_ok if st.session_state.excel_foto_ok else item.get('foto_ok')
+            foto_ok_val = st.session_state.get('excel_foto_ok', '') if st.session_state.get('excel_foto_ok') else item.get('foto_ok')
             img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
             
-            foto_nok_val = st.session_state.excel_foto_nok if st.session_state.excel_foto_nok else item.get('foto_nok')
+            foto_nok_val = st.session_state.get('excel_foto_nok', '') if st.session_state.get('excel_foto_nok') else item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
             html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
