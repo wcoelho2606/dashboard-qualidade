@@ -206,7 +206,7 @@ if menu_opcao == "🏠 Visão Geral":
         st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{no_prazo_str}</div><div class="kpi-subtitle" style="color: #6B7280;">Meta: 80%</div></div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### ALERTAS EM ABERTO")
+    st.markdown("### ALERTAS EM ABERTO (MONITORAMENTO)")
     
     df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
     if not df_abertos.empty:
@@ -255,13 +255,63 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
+    # --- FLUXO DE TRATATIVAS LOGO ABAIXO DOS GRÁFICOS NA VISÃO GERAL ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### FLUXO DE TRATATIVAS")
+    
+    # Seleciona o primeiro alerta em aberto ou padrão para exibir no fluxo da Visão Geral
+    id_fluxo_padrao = df_alertas['id'].iloc[0] if not df_alertas.empty else ""
+    if not df_abertos.empty:
+        id_fluxo_padrao = df_abertos['id'].iloc[0]
+        
+    item_v = df_alertas[df_alertas['id'] == id_fluxo_padrao].iloc[0] if not df_alertas.empty else None
+    
+    if item_v is not None:
+        d4 = str(item_v.get('data_etapa_4', '21/07/2026 20:24'))[:16]
+        r4 = item_v.get('responsavel_implementacao', 'Edson')
+        d5 = str(item_v.get('data_etapa_5', '21/07/2026 19:17'))[:16]
+        r5 = item_v.get('validador_qualidade', 'William Coelho')
+        d6 = str(item_v.get('data_etapa_6', '21/07/2026 19:17'))[:16]
+        r6 = 'Qualidade'
+
+        with st.container(border=True):
+            cols_f = st.columns(11)
+            
+            with cols_f[0]:
+                st.markdown("<div style='text-align: center;'>🟢<br><b>Alerta Emitido</b><br><small style='color: #555;'>Qualidade<br>10/07/2026<br>07:15</small></div>", unsafe_allow_html=True)
+            with cols_f[1]:
+                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
+            
+            with cols_f[2]:
+                st.markdown("<div style='text-align: center;'>🟢<br><b>Em Análise</b><br><small style='color: #555;'>Erasmo<br>10/07/2026<br>08:40</small></div>", unsafe_allow_html=True)
+            with cols_f[3]:
+                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
+
+            with cols_f[4]:
+                st.markdown("<div style='text-align: center;'>🟢<br><b>Ação Definida</b><br><small style='color: #555;'>Erasmo<br>21/07/2026<br>20:24</small></div>", unsafe_allow_html=True)
+            with cols_f[5]:
+                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
+
+            with cols_f[6]:
+                st.markdown(f"<div style='text-align: center;'>⚙️<br><b>Em Implementação</b><br><small style='color: #555;'>{r4}<br>{d4}</small></div>", unsafe_allow_html=True)
+            with cols_f[7]:
+                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
+
+            with cols_f[8]:
+                st.markdown(f"<div style='text-align: center;'>📄<br><b>Aguardando Validação</b><br><small style='color: #555;'>{r5}<br>{d5}</small></div>", unsafe_allow_html=True)
+            with cols_f[9]:
+                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
+
+            with cols_f[10]:
+                st.markdown(f"<div style='text-align: center;'>✅<br><b>Encerrado</b><br><small style='color: #555;'>{r6}<br>{d6}</small></div>", unsafe_allow_html=True)
+
 
 # =======================================================
-# ====== 2. TELA: ALERTAS DE QUALIDADE (COM O RELATÓRIO) =
+# ====== 2. TELA: ALERTAS DE QUALIDADE (RELATÓRIO) ======
 # =======================================================
 elif menu_opcao == "🔍 Alertas de Qualidade":
-    st.title("🔍 CONSULTA E RELATÓRIO DE ALERTAS DE QUALIDADE")
-    st.markdown("Pesquise por número de AQ para visualizar o relatório oficial completo com fotos e o Fluxo de Tratativas.")
+    st.title("🔍 CONSULTA DE ALERTAS DE QUALIDADE")
+    st.markdown("Pesquise por número de AQ para visualização expandida de ponta a ponta.")
     st.markdown("---")
 
     lista_aqs_geral = df_alertas["id"].tolist()
@@ -278,7 +328,6 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
         cliente_exibir = item.get('cliente', '')
         area_exibir = item['area']
 
-        # Recupera lista de fotos OK e exibe LADO A LADO
         f_ok = []
         if item.get('foto_ok'):
             val_db = item.get('foto_ok')
@@ -289,7 +338,6 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
         else:
             img_ok_tag = '<div style="text-align:center; padding:100px; color:#666; width: 100%;">Sem Foto OK</div>'
 
-        # Recupera lista de fotos NOK e exibe LADO A LADO
         f_nok = []
         if item.get('foto_nok'):
             val_db_nok = item.get('foto_nok')
@@ -331,58 +379,6 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
         </div>"""
         
         components.html(html_relatorio_grande, height=600, scrolling=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### FLUXO DE TRATATIVAS")
-        
-        d1 = str(item.get('data_etapa_1', '10/07/2026 07:15'))[:16]
-        r1 = item.get('responsavel', 'Qualidade')
-        
-        d2 = str(item.get('data_etapa_2', '10/07/2026 08:40'))[:16]
-        r2 = item.get('responsavel', 'Erasmo')
-        
-        d3 = str(item.get('data_etapa_3', '21/07/2026 20:24'))[:16]
-        r3 = item.get('responsavel_implementacao', 'Erasmo')
-        
-        d4 = str(item.get('data_etapa_4', '21/07/2026 20:24'))[:16]
-        r4 = item.get('responsavel_implementacao', 'Edson')
-        
-        d5 = str(item.get('data_etapa_5', '21/07/2026 19:17'))[:16]
-        r5 = item.get('validador_qualidade', 'William Coelho')
-        
-        d6 = str(item.get('data_etapa_6', '21/07/2026 19:17'))[:16]
-        r6 = 'Qualidade'
-
-        with st.container(border=True):
-            cols_f = st.columns(11)
-            
-            with cols_f[0]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Alerta Emitido</b><br><small style='color: #555;'>Qualidade<br>10/07/2026<br>07:15</small></div>", unsafe_allow_html=True)
-            with cols_f[1]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-            
-            with cols_f[2]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Em Análise</b><br><small style='color: #555;'>Erasmo<br>10/07/2026<br>08:40</small></div>", unsafe_allow_html=True)
-            with cols_f[3]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[4]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Ação Definida</b><br><small style='color: #555;'>Erasmo<br>21/07/2026<br>20:24</small></div>", unsafe_allow_html=True)
-            with cols_f[5]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[6]:
-                st.markdown(f"<div style='text-align: center;'>⚙️<br><b>Em Implementação</b><br><small style='color: #555;'>{r4}<br>{d4}</small></div>", unsafe_allow_html=True)
-            with cols_f[7]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[8]:
-                st.markdown(f"<div style='text-align: center;'>📄<br><b>Aguardando Validação</b><br><small style='color: #555;'>{r5}<br>{d5}</small></div>", unsafe_allow_html=True)
-            with cols_f[9]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[10]:
-                st.markdown(f"<div style='text-align: center;'>✅<br><b>Encerrado</b><br><small style='color: #555;'>{r6}<br>{d6}</small></div>", unsafe_allow_html=True)
 
 
 # =======================================================
