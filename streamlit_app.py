@@ -7,8 +7,10 @@ from datetime import datetime, date
 from supabase import create_client
 import base64
 from io import BytesIO
-from PIL import Image, ImageOps
+from PIL import Image as PILImage
 import streamlit.components.v1 as components
+import zipfile
+import xml.etree.ElementTree as ET
 
 # Configuração da página executiva
 st.set_page_config(
@@ -234,7 +236,6 @@ if menu_opcao == "🏠 Visão Geral":
             if up_excel:
                 try:
                     import openpyxl
-                    from PIL import Image as PILImage
                     
                     wb = openpyxl.load_workbook(up_excel, data_only=True)
                     if '2 Alerta da Qualidade' in wb.sheetnames:
@@ -243,26 +244,48 @@ if menu_opcao == "🏠 Visão Geral":
                         st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
                         st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
                         
-                        imagens_extraidas = []
-                        if hasattr(sh_aq, '_images') and sh_aq._images:
-                            for img in sh_aq._images:
-                                try:
-                                    img_data = img._ref() if hasattr(img, '_ref') else img.data
-                                    image_stream = BytesIO(img_data)
-                                    pil_img = PILImage.open(image_stream)
-                                    
-                                    buffered = BytesIO()
-                                    pil_img.save(buffered, format="PNG")
-                                    img_str = base64.b64encode(buffered.getvalue()).decode()
-                                    imagens_extraidas.append(f"data:image/png;base64,{img_str}")
-                                except Exception as img_err:
-                                    print(f"Erro ao processar imagem: {img_err}")
+                        # Extração robusta via ZIP para capturar as fotos OK e NOK exatas da planilha
+                        imagens_ordenadas = []
+                        up_bytes = BytesIO(up_excel.getvalue())
+                        with zipfile.ZipFile(up_bytes, 'r') as z:
+                            if 'xl/drawings/drawing2.xml' in z.namelist() and 'xl/drawings/_rels/drawing2.xml.rels' in z.namelist():
+                                d2_xml = z.read('xl/drawings/drawing2.xml')
+                                d2_rels = z.read('xl/drawings/_rels/drawing2.xml.rels')
+                                
+                                rels_root = ET.fromstring(d2_rels)
+                                rid_map = {rel.attrib['Id']: rel.attrib['Target'].replace('../', 'xl/') for rel in rels_root.findall('{http://schemas.openxmlformats.org/package/2006/relationships}Relationship')}
+                                
+                                root_d2 = ET.fromstring(d2_xml)
+                                ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', 'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+                                
+                                anchors_info = []
+                                for anchor in root_d2.findall('.//xdr:twoCellAnchor', ns) + root_d2.findall('.//xdr:oneCellAnchor', ns):
+                                    from_tag = anchor.find('xdr:from', ns)
+                                    if from_tag is not None:
+                                        r_row = int(from_tag.find('xdr:row', ns).text) if from_tag.find('xdr:row', ns) is not None else 0
+                                        r_col = int(from_tag.find('xdr:col', ns).text) if from_tag.find('xdr:col', ns) is not None else 0
+                                        blip = anchor.find('.//a:blip', ns)
+                                        if blip is not None:
+                                            embed = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                            if embed in rid_map:
+                                                img_path = rid_map[embed]
+                                                if img_path in z.namelist():
+                                                    anchors_info.append((r_row, r_col, z.read(img_path)))
+                                                    
+                                # Ordena por linha e coluna para garantir Foto OK e Foto NOK na ordem correta
+                                anchors_info.sort(key=lambda x: (x[0], x[1]))
+                                for _, _, img_bytes_data in anchors_info:
+                                    if len(img_bytes_data) > 30000: # Filtra apenas as fotos grandes (descarta ícones pequenos)
+                                        buffered = BytesIO()
+                                        PILImage.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
+                                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                                        imagens_ordenadas.append(f"data:image/png;base64,{img_str}")
                         
-                        if len(imagens_extraidas) > 0:
-                            st.session_state.excel_foto_ok = imagens_extraidas[0] if len(imagens_extraidas) > 0 else ""
-                            st.session_state.excel_foto_nok = imagens_extraidas[1] if len(imagens_extraidas) > 1 else ""
+                        if len(imagens_ordenadas) > 0:
+                            st.session_state.excel_foto_ok = imagens_ordenadas[0] if len(imagens_ordenadas) > 0 else ""
+                            st.session_state.excel_foto_nok = imagens_ordenadas[1] if len(imagens_ordenadas) > 1 else (imagens_ordenadas[0] if len(imagens_ordenadas) > 0 else "")
                         
-                        st.success("Planilha e imagens extraídas com sucesso!")
+                        st.success("Planilha e fotos extraídas com sucesso!")
                         
                         if st.button("💾 Salvar Fotos e Dados na AQ Selecionada"):
                             dados_update = {}
