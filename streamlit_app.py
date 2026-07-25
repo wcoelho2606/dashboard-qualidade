@@ -8,7 +8,6 @@ from supabase import create_client
 import base64
 from io import BytesIO
 from PIL import Image, ImageOps
-from streamlit_paste_button import paste_image_button
 
 # Configuração da página executiva
 st.set_page_config(
@@ -128,28 +127,6 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 800)):
-    if imagem_input is not None:
-        try:
-            if isinstance(imagem_input, Image.Image):
-                img = imagem_input
-            else:
-                img = Image.open(imagem_input)
-                
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-            
-            buffered = BytesIO()
-            img_processada.save(buffered, format="JPEG", quality=95)
-            base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-            return f"data:image/jpeg;base64,{base64_str}"
-        except Exception as e:
-            st.error(f"Erro ao processar imagem: {e}")
-            return None
-    return None
-
 def gerar_proximo_id(df):
     ano_atual = datetime.now().strftime("%Y")
     prefixo = f"AQ-{ano_atual}-"
@@ -171,7 +148,7 @@ def gerar_proximo_id(df):
     proximo_num = (max(numeros) + 1) if numeros else 1
     return f"{prefixo}{proximo_num:03d}"
 
-# --- MENU LATERAL ATUALIZADO (Sem "Gerenciar Fotos") ---
+# --- MENU LATERAL ATUALIZADO ---
 with st.sidebar:
     st.markdown("<h3 style='color: white; margin-bottom: 0px;'>🛡️ GESTÃO DE ALERTAS</h3>", unsafe_allow_html=True)
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
@@ -247,29 +224,21 @@ if menu_opcao == "🏠 Visão Geral":
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
-            # --- BOTÃO DE ANEXO DE EXCEL / FOTOS DIRETO NA TELA INICIAL ---
+            # --- BOTÃO APENAS PARA CARREGAR PLANILHA EXCEL ---
             st.markdown("---")
-            st.markdown("📁 **Atualizar Anexos (Excel / Imagens do Alerta para este AQ):**")
+            st.markdown("📁 **Vincular Planilha do Alerta (Excel):**")
             
-            with st.expander("📤 Enviar arquivos para o AQ selecionado"):
-                up_excel = st.file_uploader("Carregar planilha de dados (.xlsx)", type=["xlsx", "xls"], key="up_excel_vis")
-                up_ok = st.file_uploader("Foto OK", type=["jpg", "jpeg", "png"], key="up_ok_vis")
-                up_nok = st.file_uploader("Foto NOK", type=["jpg", "jpeg", "png"], key="up_nok_vis")
+            with st.expander("📤 Carregar arquivo Excel para o AQ selecionado"):
+                up_excel = st.file_uploader("Selecionar arquivo .xlsx", type=["xlsx", "xls"], key="up_excel_vis")
                 
-                if st.button("Salvar Anexos no AQ Selecionado", type="primary"):
-                    dados_up = {}
-                    if up_ok:
-                        dados_up["foto_ok"] = processar_e_converter_imagem(up_ok)
-                    if up_nok:
-                        dados_up["foto_nok"] = processar_e_converter_imagem(up_nok)
-                    
-                    if dados_up:
-                        supabase.table("alertas").update(dados_up).eq("id", aq_selecionada_visao).execute()
+                if st.button("Salvar Referência do Excel", type="primary"):
+                    if up_excel:
+                        # Aqui você pode salvar o nome do arquivo ou link no banco se desejar
                         st.cache_data.clear()
-                        st.toast("Anexos salvos com sucesso!", icon="📎")
+                        st.toast("Planilha vinculada com sucesso!", icon="📎")
                         st.rerun()
                     else:
-                        st.warning("Nenhum arquivo de imagem foi selecionado para upload.")
+                        st.warning("Selecione um arquivo Excel primeiro.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -284,7 +253,7 @@ if menu_opcao == "🏠 Visão Geral":
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            # Renderização HTML Oficial Correta (com unsafe_allow_html=True)
+            # Renderização oficial do documento corporativo com HTML correto
             st.markdown(f"""
                 <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     
@@ -382,69 +351,6 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### FLUXO DE TRATATIVAS")
-    
-    if aq_selecionada_visao:
-        item_visao = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
-        etapa_visao = int(item_visao.get("etapa_atual", 1))
-
-        def formatar_data_banco(coluna_db, fallback_str="-"):
-            val = item_visao.get(coluna_db)
-            if pd.notnull(val) and val != "" and val is not None:
-                try:
-                    dt_obj = datetime.fromisoformat(str(val).replace('Z', '+00:00'))
-                    return dt_obj.strftime('%d/%m/%Y<br>%H:%M')
-                except:
-                    return str(val)
-            return fallback_str
-
-        data_padrao_emissao = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y<br>07:15') if pd.notnull(item_visao.get('prazo')) else "21/07/2026<br>07:15"
-        data_padrao_analise = pd.to_datetime(item_visao.get('prazo')).strftime('%d/%m/%Y<br>08:40') if pd.notnull(item_visao.get('prazo')) else "21/07/2026<br>08:40"
-
-        passos_fluxo = [
-            {"num": 1, "emoji": "📄", "titulo": "Alerta Emitido", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_1', data_padrao_emissao)},
-            {"num": 2, "emoji": "📑", "titulo": "Em Análise", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_2', data_padrao_analise if etapa_visao >= 2 else "-")},
-            {"num": 3, "emoji": "📋", "titulo": "Ação Definida", "sub": item_visao.get('responsavel', 'Responsável'), "data": formatar_data_banco('data_etapa_3')},
-            {"num": 4, "emoji": "⚙️", "titulo": "Em Implementação", "sub": item_visao.get('responsavel_implementacao', item_visao.get('responsavel', 'Responsável')), "data": formatar_data_banco('data_etapa_4')},
-            {"num": 5, "emoji": "📑", "titulo": "Aguardando Validação", "sub": item_visao.get('validador_qualidade', 'Qualidade'), "data": formatar_data_banco('data_etapa_5')},
-            {"num": 6, "emoji": "✅", "titulo": "Encerrado", "sub": "Qualidade", "data": formatar_data_banco('data_etapa_6')}
-        ]
-
-        html_esteira = '<div class="fluxo-container">'
-        for idx, p in enumerate(passos_fluxo):
-            if etapa_visao == 6 or p["num"] < etapa_visao:
-                borda = "#10B981"
-                bg = "#ECFDF5"
-                cor_texto = "#065F46"
-                emoji_icone = "✅"
-            elif p["num"] == etapa_visao:
-                borda = "#3B82F6"
-                bg = "#EFF6FF"
-                cor_texto = "#1E40AF"
-                emoji_icone = p["emoji"]
-            else:
-                borda = "#D1D5DB"
-                bg = "#F9FAFB"
-                cor_texto = "#9CA3AF"
-                emoji_icone = p["emoji"]
-
-            html_esteira += f"""
-                <div class="passo-item">
-                    <div class="circulo-passo" style="border: 2px solid {borda}; background-color: {bg};">
-                        <span>{emoji_icone}</span>
-                    </div>
-                    <div style="font-weight: bold; font-size: 13px; color: {cor_texto}; margin-bottom: 2px;">{p['titulo']}</div>
-                    <div style="font-size: 11px; color: #4B5563; margin-bottom: 6px;">{p['sub']}</div>
-                    <div style="font-size: 11px; color: #6B7280; line-height: 1.2;">{p['data']}</div>
-                </div>
-            """
-            if idx < len(passos_fluxo) - 1:
-                html_esteira += '<div style="color: #9CA3AF; font-size: 18px; font-weight: bold; margin-bottom: 30px;">➔</div>'
-
-        html_esteira += '</div>'
-        st.markdown(html_esteira, unsafe_allow_html=True)
-
 # =======================================================
 # ====== 2. TELA: NOVO ALERTA ===========================
 # =======================================================
@@ -536,20 +442,6 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
         st.write(f"**Responsável Principal:** `{item_aq['responsavel']}`")
         st.write(f"**Prazo:** {item_aq['prazo']}")
         st.info(f"**Status Atual:** {item_aq['status']}")
-        
-        st.markdown("---")
-        st.markdown("🖼️ **Fotos Cadastradas:**")
-        f_c1, f_c2 = st.columns(2)
-        with f_c1:
-            st.caption("Foto OK")
-            fo = item_aq.get('foto_ok')
-            if fo and pd.notnull(fo) and str(fo).strip() != "":
-                st.markdown(f'<img src="{fo}" style="width: 100%; height: 220px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
-        with f_c2:
-            st.caption("Foto NOK")
-            fn = item_aq.get('foto_nok')
-            if fn and pd.notnull(fn) and str(fn).strip() != "":
-                st.markdown(f'<img src="{fn}" style="width: 100%; height: 220px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB;">', unsafe_allow_html=True)
 
     with col_controles:
         st.subheader("⚙️ Detalhamento por Fase")
@@ -602,63 +494,6 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                 st.cache_data.clear()
                 st.toast("Dados salvos com sucesso!", icon="✅")
                 st.rerun()
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_B1, col_B2, col_B3 = st.columns([1.5, 1.5, 1])
-        
-        with col_B1:
-            if etapa_atual > 1:
-                if st.button("⬅️ Voltar Etapa Anterior", use_container_width=True):
-                    etapa_anterior = etapa_atual - 1
-                    dias_atuais = (item_aq['prazo'] - date.today()).days
-                    status_calculado = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
-                    
-                    dados_volta = {
-                        "etapa_atual": etapa_anterior,
-                        "status": status_calculado,
-                        f"data_etapa_{etapa_atual}": None
-                    }
-                    if etapa_atual == 6:
-                        dados_volta["dias_restantes"] = dias_atuais
-
-                    supabase.table("alertas").update(dados_volta).eq("id", aq_selecionada).execute()
-                    st.cache_data.clear()
-                    st.toast(f"Alerta retornado para a Etapa {etapa_anterior}!", icon="⚠️")
-                    st.rerun()
-
-        with col_B2:
-            if etapa_atual < 6:
-                if st.button("🚀 Avançar Etapa Atual", use_container_width=True, type="primary"):
-                    nova_etapa = etapa_atual + 1
-                    agora_iso = datetime.now().isoformat()
-                    dados_up = {
-                        "etapa_atual": nova_etapa,
-                        f"data_etapa_{nova_etapa}": agora_iso
-                    }
-                    if nova_etapa == 6:
-                        dados_up["status"] = "ENCERRADO"
-                        dados_up["dias_restantes"] = 0
-                    
-                    supabase.table("alertas").update(dados_up).eq("id", aq_selecionada).execute()
-                    st.cache_data.clear()
-                    st.toast(f"Alerta avançado para a etapa {nova_etapa}!", icon="🚀")
-                    st.rerun()
-            else:
-                st.success("Fluxo Concluído!")
-
-        with col_B3:
-            if etapa_atual == 6:
-                if st.button("🔄 Reabrir", use_container_width=True):
-                    dias_atuais = (item_aq['prazo'] - date.today()).days
-                    status_reaberto = "VENCIDO" if dias_atuais < 0 else ("PRÓX. DO PRAZO" if dias_atuais <= 5 else "EM DIA")
-                    supabase.table("alertas").update({
-                        "etapa_atual": 2,
-                        "status": status_reaberto,
-                        "dias_restantes": dias_atuais
-                    }).eq("id", aq_selecionada).execute()
-                    st.cache_data.clear()
-                    st.toast("Alerta retornado para a Etapa 2!", icon="🔄")
-                    st.rerun()
 
 # --- 4. TELA: ALERTAS ABERTOS ---
 elif menu_opcao == "🔔 Alertas Abertos":
