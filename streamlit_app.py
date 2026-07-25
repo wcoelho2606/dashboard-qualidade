@@ -18,21 +18,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada (Menu Lateral Azul Escuro Compacto + Legibilidade Total)
+# Estilização CSS customizada
 st.markdown("""
     <style>
-        /* Fundo principal da aplicação */
         .reportview-container { background-color: #F4F6F9; }
         h1, h2, h3 { font-family: 'Segoe UI', sans-serif; color: #1E3A8A; }
         
-        /* Estilização da Barra Lateral (Sidebar) em Azul Escuro Profissional */
         [data-testid="stSidebar"] {
             background-color: #0F172A;
             color: #ffffff;
             padding-top: 10px;
         }
         
-        /* CORREÇÃO DO TEXTO DO MENU: Força a cor branca e tamanho legível */
         [data-testid="stSidebar"] .stRadio label, 
         [data-testid="stSidebar"] .stRadio p, 
         [data-testid="stSidebar"] .stRadio span {
@@ -45,7 +42,6 @@ st.markdown("""
             border-color: #334155;
         }
         
-        /* Cards de KPI */
         .kpi-card {
             border-radius: 8px; padding: 15px; color: white; text-align: center;
             font-family: 'Segoe UI', sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -54,7 +50,6 @@ st.markdown("""
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
         
-        /* Estilos modernos para a esteira do fluxo */
         .fluxo-container { display: flex; align-items: center; justify-content: space-between; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .passo-item { text-align: center; flex: 1; position: relative; }
         .circulo-passo {
@@ -64,7 +59,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 1. Conexão Segura com o Supabase
 @st.cache_resource
 def init_connection():
     url = st.secrets["SUPABASE_URL"]
@@ -77,7 +71,6 @@ except Exception as e:
     st.error("Erro ao conectar ao banco de dados. Verifique as credenciais.")
     st.stop()
 
-# 2. Carregar e processar dados em tempo real com Cache Otimizado
 @st.cache_data(ttl=300)
 def carregar_dados():
     try:
@@ -178,7 +171,7 @@ def gerar_proximo_id(df):
     proximo_num = (max(numeros) + 1) if numeros else 1
     return f"{prefixo}{proximo_num:03d}"
 
-# --- MENU LATERAL DE NAVEGAÇÃO REORGANIZADO ---
+# --- MENU LATERAL ATUALIZADO (Sem "Gerenciar Fotos") ---
 with st.sidebar:
     st.markdown("<h3 style='color: white; margin-bottom: 0px;'>🛡️ GESTÃO DE ALERTAS</h3>", unsafe_allow_html=True)
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
@@ -188,7 +181,6 @@ with st.sidebar:
         "🏠 Visão Geral", 
         "➕ Novo Alerta",
         "⚙️ Inserir Tratativa",
-        "🖼️ Gerenciar Fotos",
         "🔔 Alertas Abertos", 
         "⏰ Alertas Vencidos", 
         "✔️ Encerrados", 
@@ -254,6 +246,30 @@ if menu_opcao == "🏠 Visão Geral":
             st.dataframe(styler, use_container_width=True, hide_index=True)
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
+            
+            # --- BOTÃO DE ANEXO DE EXCEL / FOTOS DIRETO NA TELA INICIAL ---
+            st.markdown("---")
+            st.markdown("📁 **Atualizar Anexos (Excel / Imagens do Alerta para este AQ):**")
+            
+            with st.expander("📤 Enviar arquivos para o AQ selecionado"):
+                up_excel = st.file_uploader("Carregar planilha de dados (.xlsx)", type=["xlsx", "xls"], key="up_excel_vis")
+                up_ok = st.file_uploader("Foto OK", type=["jpg", "jpeg", "png"], key="up_ok_vis")
+                up_nok = st.file_uploader("Foto NOK", type=["jpg", "jpeg", "png"], key="up_nok_vis")
+                
+                if st.button("Salvar Anexos no AQ Selecionado", type="primary"):
+                    dados_up = {}
+                    if up_ok:
+                        dados_up["foto_ok"] = processar_e_converter_imagem(up_ok)
+                    if up_nok:
+                        dados_up["foto_nok"] = processar_e_converter_imagem(up_nok)
+                    
+                    if dados_up:
+                        supabase.table("alertas").update(dados_up).eq("id", aq_selecionada_visao).execute()
+                        st.cache_data.clear()
+                        st.toast("Anexos salvos com sucesso!", icon="📎")
+                        st.rerun()
+                    else:
+                        st.warning("Nenhum arquivo de imagem foi selecionado para upload.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -262,14 +278,13 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            # Tratamento das imagens para o layout do formulário
             foto_ok_val = item.get('foto_ok')
             img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
             
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            # Renderização do Documento de Alerta de Qualidade Oficial (Estilo Formulário)
+            # Renderização HTML Oficial Correta (com unsafe_allow_html=True)
             st.markdown(f"""
                 <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     
@@ -645,82 +660,7 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                     st.toast("Alerta retornado para a Etapa 2!", icon="🔄")
                     st.rerun()
 
-# =======================================================
-# ====== 4. TELA: GERENCIAR FOTOS =======================
-# =======================================================
-elif menu_opcao == "🖼️ Gerenciar Fotos":
-    st.title("🖼️ PAINEL DE GESTÃO DE FOTOS (OK / NOK)")
-    st.markdown("Selecione um alerta para atualizar as fotos via upload, colando da área de transferência (Ctrl+V) ou apagando.")
-    st.markdown("---")
-
-    lista_aqs_fotos = df_alertas["id"].tolist()
-    aq_foto_escolhida = st.selectbox("Selecione o Alerta para gerenciar as imagens:", lista_aqs_fotos)
-
-    if aq_foto_escolhida:
-        item_foto = df_alertas[df_alertas['id'] == aq_foto_escolhida].iloc[0]
-        
-        fc_info1, fc_info2 = st.columns(2)
-        with fc_info1:
-            st.info(f"**Produto:** {item_foto['produto']} | **Lote:** {item_foto['lote']}")
-        with fc_info2:
-            st.info(f"**Defeito:** {item_foto['defeito']}")
-
-        st.markdown("---")
-        
-        col_up1, col_up2 = st.columns(2)
-        
-        with col_up1:
-            st.markdown("### 🟢 FOTO OK (Padrão Ideal)")
-            tem_foto_ok = item_foto.get('foto_ok') and pd.notnull(item_foto['foto_ok']) and str(item_foto['foto_ok']).strip() != ""
-            if tem_foto_ok:
-                st.markdown(f'<img src="{item_foto["foto_ok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
-            
-            arquivo_ok = st.file_uploader("📁 Enviar Foto OK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_ok_unico")
-            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
-            paste_result_ok = paste_image_button(label="📋 Colar Foto OK (Ctrl+V)", key="paste_ok_unico", background_color="#10B981")
-            remover_ok = st.checkbox("🗑️ Remover/Apagar Foto OK atual", key="remover_ok_unico")
-
-        with col_up2:
-            st.markdown("### 🔴 FOTO NOK (Problema Encontrado)")
-            tem_foto_nok = item_foto.get('foto_nok') and pd.notnull(item_foto['foto_nok']) and str(item_foto['foto_nok']).strip() != ""
-            if tem_foto_nok:
-                st.markdown(f'<img src="{item_foto["foto_nok"]}" style="width: 100%; height: 320px; object-fit: contain; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #D1D5DB; margin-bottom: 10px;">', unsafe_allow_html=True)
-            
-            arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
-            st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
-            paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok_unico", background_color="#EF4444")
-            remover_nok_v = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="remover_nok_unico")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 Salvar Alterações e Atualizar Fotos", type="primary", use_container_width=True):
-            dados_atualizacao_fotos = {}
-            
-            if remover_ok:
-                dados_atualizacao_fotos["foto_ok"] = None
-            elif paste_result_ok.image_data is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(paste_result_ok.image_data, tamanho_alvo=(1000, 800))
-            elif arquivo_ok is not None:
-                dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
-                
-            if remover_nok_v:
-                dados_atualizacao_fotos["foto_nok"] = None
-            elif paste_result_nok.image_data is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
-            elif arquivo_nok is not None:
-                dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(arquivo_nok, tamanho_alvo=(1000, 800))
-                
-            if dados_atualizacao_fotos:
-                try:
-                    supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
-                    st.cache_data.clear()
-                    st.toast("Fotos atualizadas com sucesso!", icon="📸")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao salvar fotos no banco: {e}")
-            else:
-                st.warning("Nenhuma alteração foi realizada (nenhuma foto nova enviada, colada ou remoção marcada).")
-
-# --- 5. TELA: ALERTAS ABERTOS ---
+# --- 4. TELA: ALERTAS ABERTOS ---
 elif menu_opcao == "🔔 Alertas Abertos":
     st.title("🔔 ALERTAS EM ANDAMENTO")
     df_filtrado = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -728,7 +668,7 @@ elif menu_opcao == "🔔 Alertas Abertos":
         df_display = df_filtrado[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]]
         st.dataframe(df_display.style.map(colorir_status, subset=["status"]).map(colorir_dias, subset=["dias_restantes"]), use_container_width=True, hide_index=True)
 
-# --- 6. TELA: ALERTAS VENCIDOS ---
+# --- 5. TELA: ALERTAS VENCIDOS ---
 elif menu_opcao == "⏰ Alertas Vencidos":
     st.title("⏰ ALERTAS VENCIDOS E EM ATRASO")
     df_filtrado = df_alertas[df_alertas['status'] == 'VENCIDO'].copy()
@@ -738,7 +678,7 @@ elif menu_opcao == "⏰ Alertas Vencidos":
     else:
         st.success("Excelente! Não existem alertas vencidos no momento.")
 
-# --- 7. TELA: ENCERRADOS ---
+# --- 6. TELA: ENCERRADOS ---
 elif menu_opcao == "✔️ Encerrados":
     st.title("✔️ HISTÓRICO DE ALERTAS ENCERRADOS")
     df_filtrado = df_alertas[df_alertas['status'] == 'ENCERRADO'].copy()
@@ -748,7 +688,7 @@ elif menu_opcao == "✔️ Encerrados":
     else:
         st.info("Nenhum alerta encerrado no momento.")
 
-# --- 8. TELA: INDICADORES ---
+# --- 7. TELA: INDICADORES ---
 elif menu_opcao == "📊 Indicadores":
     st.title("📊 PAINEL GERAL DE INDICADORES (KPIs)")
     col_g1, col_g2 = st.columns(2)
@@ -758,7 +698,7 @@ elif menu_opcao == "📊 Indicadores":
         st.plotly_chart(px.histogram(df_alertas, x="status", title="Distribuição por Status", color="status"), use_container_width=True)
 
 # =======================================================
-# ====== 9. TELA: ANÁLISES (DIAGRAMA DE PARETO 80/20) ===
+# ====== 8. TELA: ANÁLISES (DIAGRAMA DE PARETO 80/20) ===
 # =======================================================
 elif menu_opcao == "📈 Análises":
     st.title("📈 ANÁLISE DE PARETO (PRINCÍPIO 80/20)")
@@ -810,7 +750,7 @@ elif menu_opcao == "📈 Análises":
         st.warning("Sem dados suficientes para gerar a análise de Pareto.")
 
 # =======================================================
-# ====== 10. TELA: RELATÓRIOS (CENTRAL DE AUDITORIA) ====
+# ====== 9. TELA: RELATÓRIOS (CENTRAL DE AUDITORIA) ====
 # =======================================================
 elif menu_opcao == "📄 Relatórios":
     st.title("📄 CENTRAL DE RELATÓRIOS E AUDITORIA")
