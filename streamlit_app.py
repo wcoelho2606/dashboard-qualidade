@@ -242,7 +242,7 @@ if menu_opcao == "🏠 Visão Geral":
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### ALERTAS EM ABERTO")
     
-    col_tabela, col_detalhes = st.columns([2.0, 2.0])
+    col_tabela, col_detalhes = st.columns([1.5, 2.5])
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -253,7 +253,7 @@ if menu_opcao == "🏠 Visão Geral":
             styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
             st.dataframe(styler, use_container_width=True, hide_index=True)
             
-            aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver os Detalhes e Fotos:", df_abertos["id"].tolist())
+            aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -262,36 +262,72 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            st.markdown(f"""
-            <div style="background-color: #1E3A8A; padding: 12px; border-radius: 8px 8px 0px 0px; color: white; text-align: center;">
-                <div style="font-size: 12px; font-weight: 700;">AUDITORIA DO ALERTA</div>
-                <div style="font-size: 22px; font-weight: 800;">{item['id']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Tratamento das imagens para o layout do formulário
+            foto_ok_val = item.get('foto_ok')
+            img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
             
-            with st.container(border=True):
-                st.markdown(f"📌 **Defeito:** `{item['defeito']}` | 📁 **Prod.:** `{item['produto']}` | 📦 **Lote:** `{item['lote']}`")
-                st.markdown(f"🏢 **Área:** `{item['area']}` | 👤 **Resp.:** `{item['responsavel']}` | 🕒 **Prazo:** {item['prazo']} | 🛡️ **Status:** <span style='background-color: {status_cor}; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold;'>{item['status']}</span>", unsafe_allow_html=True)
-                
-                st.divider()
-                st.markdown("🖼️ **REGISTRO FOTOGRÁFICO GRANDE (PADRÃO OK / NOK)**")
-                
-                f_col1, f_col2 = st.columns(2)
-                with f_col1:
-                    st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #10B981; background-color: #ECFDF5; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🟢 FOTO OK</div>", unsafe_allow_html=True)
-                    foto_ok_val = item.get('foto_ok')
-                    if foto_ok_val and pd.notnull(foto_ok_val) and str(foto_ok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_ok_val}" style="width: 100%; height: 380px; object-fit: contain; background-color: #f8f9fa; border-radius: 6px; border: 2px solid #10B981;">', unsafe_allow_html=True)
-                    else:
-                        st.info("Nenhuma foto OK cadastrada.")
-                        
-                with f_col2:
-                    st.markdown("<div style='text-align: center; font-weight: bold; font-size: 14px; color: #EF4444; background-color: #FEE2E2; padding: 6px; border-radius: 4px; margin-bottom: 8px;'>🔴 FOTO NOK</div>", unsafe_allow_html=True)
-                    foto_nok_val = item.get('foto_nok')
-                    if foto_nok_val and pd.notnull(foto_nok_val) and str(foto_nok_val).strip() != "":
-                        st.markdown(f'<img src="{foto_nok_val}" style="width: 100%; height: 380px; object-fit: contain; background-color: #f8f9fa; border-radius: 6px; border: 2px solid #EF4444;">', unsafe_allow_html=True)
-                    else:
-                        st.info("Nenhuma foto NOK cadastrada.")
+            foto_nok_val = item.get('foto_nok')
+            img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
+
+            # Renderização do Documento de Alerta de Qualidade Oficial (Estilo Formulário)
+            st.markdown(f"""
+                <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    
+                    <!-- CABEÇALHO -->
+                    <div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;">
+                        <div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px;">
+                            ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span>
+                        </div>
+                        <div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;">
+                            <h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">ALERTA DA QUALIDADE</h2>
+                        </div>
+                        <div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;">
+                            <span style="font-size: 11px; font-weight: bold;">Nº :</span><br>
+                            <span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span>
+                        </div>
+                    </div>
+
+                    <!-- DESCRIÇÃO E DADOS DA PEÇA -->
+                    <div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;">
+                        <div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;">
+                            <b>DESCRIÇÃO DO PROBLEMA:</b><br>
+                            <span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span>
+                        </div>
+                        <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
+                            <b>Cliente:</b><br>INTERNA
+                        </div>
+                        <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
+                            <b>Área:</b><br>{item['area']}
+                        </div>
+                        <div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
+                            <b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span>
+                        </div>
+                        <div style="width: 17%; padding: 8px; text-align: center;">
+                            <b>Data / Prazo:</b><br>{item['prazo']}
+                        </div>
+                    </div>
+
+                    <!-- FOTOS LADO A LADO -->
+                    <div style="display: flex; border-bottom: 2px solid #1E3A8A;">
+                        <div style="width: 50%; border-right: 1px solid #1E3A8A;">
+                            <div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>
+                            {img_ok_tag}
+                        </div>
+                        <div style="width: 50%;">
+                            <div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>
+                            {img_nok_tag}
+                        </div>
+                    </div>
+
+                    <!-- RODAPÉ DE RESPONSÁVEIS -->
+                    <div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;">
+                        <div><b>Responsável:</b> {item['responsavel']}</div>
+                        <div><b>Lote:</b> {item['lote']}</div>
+                        <div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div>
+                    </div>
+
+                </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
@@ -439,7 +475,7 @@ elif menu_opcao == "➕ Novo Alerta":
 
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
-                    st.cache_data.clear() # Limpa o cache para buscar o dado novo imediatamente
+                    st.cache_data.clear()
                     st.toast(f"Alerta {id_alerta} cadastrado com sucesso!", icon="🎉")
                     st.rerun()
                 except Exception as e:
@@ -659,7 +695,6 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
         if st.button("💾 Salvar Alterações e Atualizar Fotos", type="primary", use_container_width=True):
             dados_atualizacao_fotos = {}
             
-            # Processamento Foto OK
             if remover_ok:
                 dados_atualizacao_fotos["foto_ok"] = None
             elif paste_result_ok.image_data is not None:
@@ -667,7 +702,6 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             elif arquivo_ok is not None:
                 dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
                 
-            # Processamento Foto NOK
             if remover_nok_v:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
