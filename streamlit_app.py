@@ -8,6 +8,7 @@ from supabase import create_client
 import base64
 from io import BytesIO
 from PIL import Image, ImageOps
+import streamlit.components.v1 as components
 
 # Configuração da página executiva
 st.set_page_config(
@@ -225,8 +226,6 @@ if menu_opcao == "🏠 Visão Geral":
                 try:
                     df_excel_preview = pd.read_excel(up_excel, sheet_name=0)
                     st.success("Planilha carregada com sucesso!")
-                    with st.expander("Visualizar dados extraídos da planilha"):
-                        st.dataframe(df_excel_preview.head(10), use_container_width=True)
                 except Exception as e:
                     st.info("Planilha carregada e pronta.")
         else:
@@ -243,66 +242,9 @@ if menu_opcao == "🏠 Visão Geral":
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            # --- RENDERIZAÇÃO DO RELATÓRIO OFICIAL HTML ---
-            html_relatorio = f"""
-                <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    
-                    <!-- CABEÇALHO -->
-                    <div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;">
-                        <div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">
-                            ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span>
-                        </div>
-                        <div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;">
-                            <h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2>
-                        </div>
-                        <div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;">
-                            <span style="font-size: 11px; font-weight: bold;">Nº :</span><br>
-                            <span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span>
-                        </div>
-                    </div>
-
-                    <!-- DESCRIÇÃO E DADOS DA PEÇA -->
-                    <div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;">
-                        <div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;">
-                            <b>DESCRIÇÃO DO PROBLEMA:</b><br>
-                            <span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span>
-                        </div>
-                        <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
-                            <b>Cliente:</b><br>INTERNA
-                        </div>
-                        <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
-                            <b>Área:</b><br>{item['area']}
-                        </div>
-                        <div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;">
-                            <b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span>
-                        </div>
-                        <div style="width: 17%; padding: 8px; text-align: center;">
-                            <b>Data / Prazo:</b><br>{item['prazo']}
-                        </div>
-                    </div>
-
-                    <!-- FOTOS LADO A LADO -->
-                    <div style="display: flex; border-bottom: 2px solid #1E3A8A;">
-                        <div style="width: 50%; border-right: 1px solid #1E3A8A;">
-                            <div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>
-                            {img_ok_tag}
-                        </div>
-                        <div style="width: 50%;">
-                            <div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>
-                            {img_nok_tag}
-                        </div>
-                    </div>
-
-                    <!-- RODAPÉ DE RESPONSÁVEIS -->
-                    <div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;">
-                        <div><b>Responsável:</b> {item['responsavel']}</div>
-                        <div><b>Lote:</b> {item['lote']}</div>
-                        <div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div>
-                    </div>
-
-                </div>
-            """
-            st.markdown(html_relatorio, unsafe_allow_html=True)
+            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>INTERNA</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{item['area']}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
+            
+            components.html(html_relatorio, height=520, scrolling=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
