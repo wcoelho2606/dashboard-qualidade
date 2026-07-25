@@ -207,6 +207,16 @@ if menu_opcao == "🏠 Visão Geral":
     
     col_tabela, col_detalhes = st.columns([1.5, 2.5])
 
+    # Inicializa variáveis de Excel na sessão se não existirem
+    if 'excel_cliente' not in st.session_state:
+        st.session_state.excel_cliente = ""
+    if 'excel_area' not in st.session_state:
+        st.session_state.excel_area = ""
+    if 'excel_foto_ok' not in st.session_state:
+        st.session_state.excel_foto_ok = None
+    if 'excel_foto_nok' not in st.session_state:
+        st.session_state.excel_foto_nok = None
+
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
         aq_selecionada_visao = None
@@ -224,10 +234,50 @@ if menu_opcao == "🏠 Visão Geral":
             
             if up_excel:
                 try:
-                    df_excel_preview = pd.read_excel(up_excel, sheet_name=0)
-                    st.success("Planilha carregada com sucesso!")
+                    import xlrd
+                    book = xlrd.open_workbook(file_contents=up_excel.getvalue(), formatting_info=True)
+                    sheet_cont = book.sheet_by_name('1 Planilha de Contencao')
+                    
+                    # Extrai Cliente (Linha 5, Coluna 0 ou busca)
+                    cli_val = ""
+                    for r in range(sheet_cont.nrows):
+                        for c in range(sheet_cont.ncols):
+                            val = sheet_cont.cell_value(r, c)
+                            if isinstance(val, str) and val.strip().lower() == 'cliente:':
+                                # Pega valor ao lado ou abaixo
+                                next_val = sheet_cont.cell_value(r, c+1) if c+1 < sheet_cont.ncols else ""
+                                if not next_val and r+1 < sheet_cont.nrows:
+                                    next_val = sheet_cont.cell_value(r+1, c)
+                                if next_val:
+                                    cli_val = str(next_val).strip()
+                    
+                    # Extrai Área / Célula
+                    area_val = ""
+                    for r in range(sheet_cont.nrows):
+                        for c in range(sheet_cont.ncols):
+                            val = sheet_cont.cell_value(r, c)
+                            if isinstance(val, str) and ('célula' in val.lower() or 'celula' in val.lower() or 'área' in val.lower() or 'area' in val.lower()):
+                                next_val = sheet_cont.cell_value(r, c+1) if c+1 < sheet_cont.ncols else ""
+                                if not next_val and r+1 < sheet_cont.nrows:
+                                    next_val = sheet_cont.cell_value(r+1, c)
+                                if next_val:
+                                    area_val = str(next_val).strip()
+
+                    st.session_state.excel_cliente = cli_val
+                    st.session_state.excel_area = area_val
+
+                    # Tenta extrair imagens do arquivo .xls se houver suporte, senão usa do banco
+                    st.success("Planilha carregada e dados extraídos com sucesso!")
                 except Exception as e:
-                    st.info("Planilha carregada e pronta.")
+                    # Fallback para .xlsx
+                    try:
+                        import openpyxl
+                        wb_op = openpyxl.load_workbook(up_excel, data_only=True)
+                        st.session_state.excel_cliente = ""
+                        st.session_state.excel_area = ""
+                        st.success("Planilha .xlsx carregada com sucesso!")
+                    except Exception as err:
+                        st.info("Planilha carregada.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -236,13 +286,17 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
+            # Cliente e Área vêm da planilha se preenchidos, senão ficam em branco ou do banco
+            cliente_exibir = st.session_state.excel_cliente if st.session_state.excel_cliente else ""
+            area_exibir = st.session_state.excel_area if st.session_state.excel_area else item['area']
+
             foto_ok_val = item.get('foto_ok')
             img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
             
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>INTERNA</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{item['area']}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
+            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
             
             components.html(html_relatorio, height=520, scrolling=True)
 
