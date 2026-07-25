@@ -287,7 +287,7 @@ if menu_opcao == "🏠 Visão Geral":
                                 for _, _, img_bytes_data in anchors_info:
                                     if len(img_bytes_data) > 30000:
                                         buffered = BytesIO()
-                                        PILImage.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
+                                        Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
                                         img_str = base64.b64encode(buffered.getvalue()).decode()
                                         imagens_ordenadas.append(f"data:image/png;base64,{img_str}")
                         
@@ -327,7 +327,6 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            # Prioriza o dado salvo no Supabase do AQ selecionado, se houver
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
 
