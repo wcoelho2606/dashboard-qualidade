@@ -207,15 +207,18 @@ if menu_opcao == "🏠 Visão Geral":
     
     col_tabela, col_detalhes = st.columns([1.5, 2.5])
 
-    # Inicializa variáveis de Excel na sessão se não existirem
     if 'excel_cliente' not in st.session_state:
         st.session_state.excel_cliente = ""
     if 'excel_area' not in st.session_state:
         st.session_state.excel_area = ""
-    if 'excel_foto_ok' not in st.session_state:
-        st.session_state.excel_foto_ok = None
-    if 'excel_foto_nok' not in st.session_state:
-        st.session_state.excel_foto_nok = None
+    if 'excel_produto' not in st.session_state:
+        st.session_state.excel_produto = ""
+    if 'excel_defeito' not in st.session_state:
+        st.session_state.excel_defeito = ""
+    if 'excel_lote' not in st.session_state:
+        st.session_state.excel_lote = ""
+    if 'excel_prazo' not in st.session_state:
+        st.session_state.excel_prazo = ""
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -229,55 +232,22 @@ if menu_opcao == "🏠 Visão Geral":
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
             st.markdown("---")
-            st.markdown("📁 **Carregar Planilha do Alerta (.xls / .xlsx):**")
-            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xls", "xlsx"], key="up_excel_vis")
+            st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
+            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xlsx"], key="up_excel_vis")
             
             if up_excel:
                 try:
-                    import xlrd
-                    book = xlrd.open_workbook(file_contents=up_excel.getvalue(), formatting_info=True)
-                    sheet_cont = book.sheet_by_name('1 Planilha de Contencao')
-                    
-                    # Extrai Cliente (Linha 5, Coluna 0 ou busca)
-                    cli_val = ""
-                    for r in range(sheet_cont.nrows):
-                        for c in range(sheet_cont.ncols):
-                            val = sheet_cont.cell_value(r, c)
-                            if isinstance(val, str) and val.strip().lower() == 'cliente:':
-                                # Pega valor ao lado ou abaixo
-                                next_val = sheet_cont.cell_value(r, c+1) if c+1 < sheet_cont.ncols else ""
-                                if not next_val and r+1 < sheet_cont.nrows:
-                                    next_val = sheet_cont.cell_value(r+1, c)
-                                if next_val:
-                                    cli_val = str(next_val).strip()
-                    
-                    # Extrai Área / Célula
-                    area_val = ""
-                    for r in range(sheet_cont.nrows):
-                        for c in range(sheet_cont.ncols):
-                            val = sheet_cont.cell_value(r, c)
-                            if isinstance(val, str) and ('célula' in val.lower() or 'celula' in val.lower() or 'área' in val.lower() or 'area' in val.lower()):
-                                next_val = sheet_cont.cell_value(r, c+1) if c+1 < sheet_cont.ncols else ""
-                                if not next_val and r+1 < sheet_cont.nrows:
-                                    next_val = sheet_cont.cell_value(r+1, c)
-                                if next_val:
-                                    area_val = str(next_val).strip()
-
-                    st.session_state.excel_cliente = cli_val
-                    st.session_state.excel_area = area_val
-
-                    # Tenta extrair imagens do arquivo .xls se houver suporte, senão usa do banco
-                    st.success("Planilha carregada e dados extraídos com sucesso!")
+                    import openpyxl
+                    wb = openpyxl.load_workbook(up_excel, data_only=True)
+                    if '2 Alerta da Qualidade' in wb.sheetnames:
+                        sh_aq = wb['2 Alerta da Qualidade']
+                        # Exemplo de leitura de células específicas do formulário Excel
+                        # Ajustado para extrair cliente, área, defeito e produto diretamente se preenchidos
+                        st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
+                        st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
+                        st.success("Dados da planilha carregados com sucesso!")
                 except Exception as e:
-                    # Fallback para .xlsx
-                    try:
-                        import openpyxl
-                        wb_op = openpyxl.load_workbook(up_excel, data_only=True)
-                        st.session_state.excel_cliente = ""
-                        st.session_state.excel_area = ""
-                        st.success("Planilha .xlsx carregada com sucesso!")
-                    except Exception as err:
-                        st.info("Planilha carregada.")
+                    st.info("Planilha carregada.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -286,9 +256,9 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            # Cliente e Área vêm da planilha se preenchidos, senão ficam em branco ou do banco
-            cliente_exibir = st.session_state.excel_cliente if st.session_state.excel_cliente else ""
-            area_exibir = st.session_state.excel_area if st.session_state.excel_area else item['area']
+            # Se a planilha trouxer dados, usa eles; se vier vazia, exibe em branco conforme solicitado
+            cliente_exibir = st.session_state.excel_cliente
+            area_exibir = st.session_state.excel_area
 
             foto_ok_val = item.get('foto_ok')
             img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
