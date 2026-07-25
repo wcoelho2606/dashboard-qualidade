@@ -1,5 +1,7 @@
+streamlit
 pandas
 numpy
 plotly
 supabase
-streamlit-paste-button
+openpyxl
+pillow
