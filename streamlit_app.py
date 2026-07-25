@@ -340,7 +340,6 @@ if menu_opcao == "🏠 Visão Geral":
                 f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
             
             if f_ok:
-                # Cada imagem fica em um container flexível lado a lado (ex: max-width ajustável conforme a quantidade)
                 img_ok_tag = "".join([f'<div style="flex: 1; min-width: 120px; padding: 2px;"><img src="{f}" style="width: 100%; height: 230px; object-fit: contain; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 4px;"></div>' for f in f_ok if f])
             else:
                 img_ok_tag = '<div style="text-align:center; padding:80px; color:#666; width: 100%;">Sem Foto OK</div>'
@@ -498,18 +497,11 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
     for i, nome_etapa in enumerate(etapas_nomes, start=1):
         with cols_fluxo[i-1]:
             if etapa_atual == 6 or i < etapa_atual:
-                st.success(f"✅
-
-**{nome_etapa}**")
+                st.success(f"✅\n\n**{nome_etapa}**")
             elif i == etapa_atual:
-                st.warning(f"⏳
-
-**{nome_etapa}**
-*(Atual)*")
+                st.warning(f"⏳\n\n**{nome_etapa}**\n*(Atual)*")
             else:
-                st.markdown(f"⚪
-
-_{nome_etapa}_")
+                st.markdown(f"⚪\n\n_{nome_etapa}_")
 
     st.markdown("---")
     
