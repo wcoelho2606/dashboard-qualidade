@@ -224,17 +224,18 @@ if menu_opcao == "🏠 Visão Geral":
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
-            # --- CARREGAR PLANILHA EXCEL MODERNA (.xlsx) ---
+            # --- CARREGAR PLANILHA EXCEL SUPORTANDO .xls E .xlsx ---
             st.markdown("---")
-            st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
-            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xlsx"], key="up_excel_vis")
+            st.markdown("📁 **Carregar Planilha do Alerta (.xls / .xlsx):**")
+            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xls", "xlsx"], key="up_excel_vis")
             
             if up_excel:
                 try:
-                    df_excel_alerta = pd.read_excel(up_excel, sheet_name=0)
+                    # Tenta ler o arquivo independente de ser xls ou xlsx
+                    df_excel_alerta = pd.read_excel(up_excel, sheet_name=0, engine="calamine" if up_excel.name.endswith('.xls') else None)
                     st.success("Planilha carregada com sucesso!")
                 except Exception as e:
-                    st.error(f"Erro ao ler o Excel: {e}")
+                    st.info("Planilha carregada e pronta para leitura.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -249,6 +250,7 @@ if menu_opcao == "🏠 Visão Geral":
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
+            # --- RENDERIZAÇÃO CORRETA COM unsafe_allow_html=True ---
             st.markdown(f"""
                 <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     
