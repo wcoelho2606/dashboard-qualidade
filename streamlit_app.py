@@ -220,7 +220,6 @@ if menu_opcao == "🏠 Visão Geral":
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
-            # Gerenciamento de sessão para limpar dados ao trocar de AQ
             if 'last_aq_selected' not in st.session_state:
                 st.session_state.last_aq_selected = aq_selecionada_visao
 
@@ -228,8 +227,8 @@ if menu_opcao == "🏠 Visão Geral":
                 st.session_state.last_aq_selected = aq_selecionada_visao
                 st.session_state.excel_cliente = ""
                 st.session_state.excel_area = ""
-                st.session_state.excel_foto_ok = ""
-                st.session_state.excel_foto_nok = ""
+                st.session_state.excel_foto_ok = []
+                st.session_state.excel_foto_nok = []
                 st.rerun()
 
             if 'excel_cliente' not in st.session_state:
@@ -237,13 +236,12 @@ if menu_opcao == "🏠 Visão Geral":
             if 'excel_area' not in st.session_state:
                 st.session_state.excel_area = ""
             if 'excel_foto_ok' not in st.session_state:
-                st.session_state.excel_foto_ok = ""
+                st.session_state.excel_foto_ok = []
             if 'excel_foto_nok' not in st.session_state:
-                st.session_state.excel_foto_nok = ""
+                st.session_state.excel_foto_nok = []
             
             st.markdown("---")
             st.markdown("📁 **Carregar Planilha do Alerta (.xlsx):**")
-            # Chave dinâmica para limpar o uploader automaticamente ao trocar de AQ
             up_excel = st.file_uploader("Selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key=f"up_excel_{aq_selecionada_visao}")
             
             if up_excel:
@@ -257,7 +255,9 @@ if menu_opcao == "🏠 Visão Geral":
                         st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
                         st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
                         
-                        imagens_ordenadas = []
+                        fotos_ok_list = []
+                        fotos_nok_list = []
+                        
                         up_bytes = BytesIO(up_excel.getvalue())
                         with zipfile.ZipFile(up_bytes, 'r') as z:
                             if 'xl/drawings/drawing2.xml' in z.namelist() and 'xl/drawings/_rels/drawing2.xml.rels' in z.namelist():
@@ -270,33 +270,37 @@ if menu_opcao == "🏠 Visão Geral":
                                 root_d2 = ET.fromstring(d2_xml)
                                 ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', 'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
                                 
-                                anchors_info = []
                                 for anchor in root_d2.findall('.//xdr:twoCellAnchor', ns) + root_d2.findall('.//xdr:oneCellAnchor', ns):
                                     from_tag = anchor.find('xdr:from', ns)
                                     if from_tag is not None:
                                         r_row = int(from_tag.find('xdr:row', ns).text) if from_tag.find('xdr:row', ns) is not None else 0
                                         r_col = int(from_tag.find('xdr:col', ns).text) if from_tag.find('xdr:col', ns) is not None else 0
-                                        blip = anchor.find('.//a:blip', ns)
-                                        if blip is not None:
-                                            embed = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-                                            if embed in rid_map:
-                                                img_path = rid_map[embed]
-                                                if img_path in z.namelist():
-                                                    anchors_info.append((r_row, r_col, z.read(img_path)))
-                                                    
-                                anchors_info.sort(key=lambda x: (x[0], x[1]))
-                                for _, _, img_bytes_data in anchors_info:
-                                    if len(img_bytes_data) > 30000:
-                                        buffered = BytesIO()
-                                        Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
-                                        img_str = base64.b64encode(buffered.getvalue()).decode()
-                                        imagens_ordenadas.append(f"data:image/png;base64,{img_str}")
+                                        
+                                        # Consideramos fotos na região a partir da linha 7
+                                        if r_row >= 7:
+                                            blip = anchor.find('.//a:blip', ns)
+                                            if blip is not None:
+                                                embed = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                                if embed in rid_map:
+                                                    img_path = rid_map[embed]
+                                                    if img_path in z.namelist():
+                                                        img_bytes_data = z.read(img_path)
+                                                        if len(img_bytes_data) > 30000: # Ignora ícones pequenos
+                                                            buffered = BytesIO()
+                                                            Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
+                                                            img_str = base64.b64encode(buffered.getvalue()).decode()
+                                                            final_str = f"data:image/png;base64,{img_str}"
+                                                            
+                                                            # Separação por coluna: Colunas < 8 = FOTO OK, Colunas >= 8 = FOTO NOK
+                                                            if r_col < 8:
+                                                                fotos_ok_list.append(final_str)
+                                                            else:
+                                                                fotos_nok_list.append(final_str)
                         
-                        if len(imagens_ordenadas) > 0:
-                            st.session_state.excel_foto_ok = imagens_ordenadas[0] if len(imagens_ordenadas) > 0 else ""
-                            st.session_state.excel_foto_nok = imagens_ordenadas[1] if len(imagens_ordenadas) > 1 else (imagens_ordenadas[0] if len(imagens_ordenadas) > 0 else "")
+                        st.session_state.excel_foto_ok = fotos_ok_list
+                        st.session_state.excel_foto_nok = fotos_nok_list
                         
-                        st.success("Planilha e fotos extraídas com sucesso!")
+                        st.success(f"Planilha processada! Encontradas {len(fotos_ok_list)} Foto(s) OK e {len(fotos_nok_list)} Foto(s) NOK.")
                         
                         if st.button("💾 Salvar Fotos e Dados na AQ Selecionada"):
                             dados_update = {}
@@ -305,9 +309,9 @@ if menu_opcao == "🏠 Visão Geral":
                             if st.session_state.excel_area:
                                 dados_update["area"] = st.session_state.excel_area
                             if st.session_state.excel_foto_ok:
-                                dados_update["foto_ok"] = st.session_state.excel_foto_ok
+                                dados_update["foto_ok"] = st.session_state.excel_foto_ok[0] if len(st.session_state.excel_foto_ok) == 1 else str(st.session_state.excel_foto_ok)
                             if st.session_state.excel_foto_nok:
-                                dados_update["foto_nok"] = st.session_state.excel_foto_nok
+                                dados_update["foto_nok"] = st.session_state.excel_foto_nok[0] if len(st.session_state.excel_foto_nok) == 1 else str(st.session_state.excel_foto_nok)
                                 
                             if dados_update:
                                 supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
@@ -331,15 +335,31 @@ if menu_opcao == "🏠 Visão Geral":
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
 
-            foto_ok_val = st.session_state.get('excel_foto_ok', '') if st.session_state.get('excel_foto_ok') else item.get('foto_ok')
-            img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
+            # Recupera lista de fotos OK
+            f_ok = st.session_state.get('excel_foto_ok', [])
+            if not f_ok and item.get('foto_ok'):
+                val_db = item.get('foto_ok')
+                f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
             
-            foto_nok_val = st.session_state.get('excel_foto_nok', '') if st.session_state.get('excel_foto_nok') else item.get('foto_nok')
-            img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
+            if f_ok:
+                img_ok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_ok if f])
+            else:
+                img_ok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
 
-            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
+            # Recupera lista de fotos NOK
+            f_nok = st.session_state.get('excel_foto_nok', [])
+            if not f_nok and item.get('foto_nok'):
+                val_db_nok = item.get('foto_nok')
+                f_nok = val_db_nok.strip("[]").replace("'", "").split(", ") if str(val_db_nok).startswith("[") else [val_db_nok]
             
-            components.html(html_relatorio, height=520, scrolling=True)
+            if f_nok:
+                img_nok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_nok if f])
+            else:
+                img_nok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
+
+            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div><div style="max-height: 280px; overflow-y: auto;">{img_ok_tag}</div></div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div><div style="max-height: 280px; overflow-y: auto;">{img_nok_tag}</div></div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
+            
+            components.html(html_relatorio, height=540, scrolling=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
