@@ -48,13 +48,6 @@ st.markdown("""
         .kpi-title { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9; }
         .kpi-value { font-size: 28px; font-weight: 800; margin-bottom: 2px; }
         .kpi-subtitle { font-size: 12px; opacity: 0.8; }
-        
-        .fluxo-container { display: flex; align-items: center; justify-content: space-between; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .passo-item { text-align: center; flex: 1; position: relative; }
-        .circulo-passo {
-            width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 8px auto; font-size: 22px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -148,7 +141,7 @@ def gerar_proximo_id(df):
     proximo_num = (max(numeros) + 1) if numeros else 1
     return f"{prefixo}{proximo_num:03d}"
 
-# --- MENU LATERAL ATUALIZADO ---
+# --- MENU LATERAL ---
 with st.sidebar:
     st.markdown("<h3 style='color: white; margin-bottom: 0px;'>🛡️ GESTÃO DE ALERTAS</h3>", unsafe_allow_html=True)
     st.markdown("<small style='color: #94A3B8;'>Supabase + Streamlit Cloud</small>", unsafe_allow_html=True)
@@ -224,18 +217,18 @@ if menu_opcao == "🏠 Visão Geral":
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
-            # --- CARREGAR PLANILHA EXCEL SUPORTANDO .xls E .xlsx ---
             st.markdown("---")
             st.markdown("📁 **Carregar Planilha do Alerta (.xls / .xlsx):**")
             up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xls", "xlsx"], key="up_excel_vis")
             
             if up_excel:
                 try:
-                    # Tenta ler o arquivo independente de ser xls ou xlsx
-                    df_excel_alerta = pd.read_excel(up_excel, sheet_name=0, engine="calamine" if up_excel.name.endswith('.xls') else None)
+                    df_excel_preview = pd.read_excel(up_excel, sheet_name=0)
                     st.success("Planilha carregada com sucesso!")
+                    with st.expander("Visualizar dados extraídos da planilha"):
+                        st.dataframe(df_excel_preview.head(10), use_container_width=True)
                 except Exception as e:
-                    st.info("Planilha carregada e pronta para leitura.")
+                    st.info("Planilha carregada e pronta.")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -250,17 +243,17 @@ if menu_opcao == "🏠 Visão Geral":
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            # --- RENDERIZAÇÃO CORRETA COM unsafe_allow_html=True ---
-            st.markdown(f"""
+            # --- RENDERIZAÇÃO DO RELATÓRIO OFICIAL HTML ---
+            html_relatorio = f"""
                 <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     
                     <!-- CABEÇALHO -->
                     <div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;">
-                        <div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px;">
+                        <div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">
                             ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span>
                         </div>
                         <div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;">
-                            <h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;">ALERTA DA QUALIDADE</h2>
+                            <h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2>
                         </div>
                         <div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;">
                             <span style="font-size: 11px; font-weight: bold;">Nº :</span><br>
@@ -308,7 +301,8 @@ if menu_opcao == "🏠 Visão Geral":
                     </div>
 
                 </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(html_relatorio, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
