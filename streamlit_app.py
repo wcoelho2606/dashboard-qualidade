@@ -211,14 +211,10 @@ if menu_opcao == "🏠 Visão Geral":
         st.session_state.excel_cliente = ""
     if 'excel_area' not in st.session_state:
         st.session_state.excel_area = ""
-    if 'excel_produto' not in st.session_state:
-        st.session_state.excel_produto = ""
-    if 'excel_defeito' not in st.session_state:
-        st.session_state.excel_defeito = ""
-    if 'excel_lote' not in st.session_state:
-        st.session_state.excel_lote = ""
-    if 'excel_prazo' not in st.session_state:
-        st.session_state.excel_prazo = ""
+    if 'excel_foto_ok' not in st.session_state:
+        st.session_state.excel_foto_ok = ""
+    if 'excel_foto_nok' not in st.session_state:
+        st.session_state.excel_foto_nok = ""
 
     with col_tabela:
         df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
@@ -238,16 +234,59 @@ if menu_opcao == "🏠 Visão Geral":
             if up_excel:
                 try:
                     import openpyxl
+                    from PIL import Image as PILImage
+                    
                     wb = openpyxl.load_workbook(up_excel, data_only=True)
                     if '2 Alerta da Qualidade' in wb.sheetnames:
                         sh_aq = wb['2 Alerta da Qualidade']
-                        # Exemplo de leitura de células específicas do formulário Excel
-                        # Ajustado para extrair cliente, área, defeito e produto diretamente se preenchidos
+                        
                         st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
                         st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
-                        st.success("Dados da planilha carregados com sucesso!")
+                        
+                        imagens_extraidas = []
+                        if hasattr(sh_aq, '_images') and sh_aq._images:
+                            for img in sh_aq._images:
+                                try:
+                                    img_data = img._ref() if hasattr(img, '_ref') else img.data
+                                    image_stream = BytesIO(img_data)
+                                    pil_img = PILImage.open(image_stream)
+                                    
+                                    buffered = BytesIO()
+                                    pil_img.save(buffered, format="PNG")
+                                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                                    imagens_extraidas.append(f"data:image/png;base64,{img_str}")
+                                except Exception as img_err:
+                                    print(f"Erro ao processar imagem: {img_err}")
+                        
+                        if len(imagens_extraidas) > 0:
+                            st.session_state.excel_foto_ok = imagens_extraidas[0] if len(imagens_extraidas) > 0 else ""
+                            st.session_state.excel_foto_nok = imagens_extraidas[1] if len(imagens_extraidas) > 1 else ""
+                        
+                        st.success("Planilha e elementos visuais carregados com sucesso!")
+                        
+                        if st.button("💾 Atualizar AQ com dados desta Planilha"):
+                            dados_update = {}
+                            if st.session_state.excel_cliente:
+                                dados_update["cliente"] = st.session_state.excel_cliente
+                            if st.session_state.excel_area:
+                                dados_update["area"] = st.session_state.excel_area
+                            if 'excel_foto_ok' in st.session_state and st.session_state.excel_foto_ok:
+                                dados_update["foto_ok"] = st.session_state.excel_foto_ok
+                            if 'excel_foto_nok' in st.session_state and st.session_state.excel_foto_nok:
+                                dados_update["foto_nok"] = st.session_state.excel_foto_nok
+                                
+                            if dados_update:
+                                supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
+                                st.cache_data.clear()
+                                st.toast("Registro atualizado no Supabase com sucesso!", icon="🚀")
+                                st.rerun()
+                            else:
+                                st.warning("Nenhum dado novo encontrado para atualizar.")
+                                
+                    else:
+                        st.error("A aba '2 Alerta da Qualidade' não foi encontrada no arquivo Excel.")
                 except Exception as e:
-                    st.info("Planilha carregada.")
+                    st.error(f"Erro ao processar o arquivo Excel: {e}")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -256,14 +295,13 @@ if menu_opcao == "🏠 Visão Geral":
             item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
             status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
             
-            # Se a planilha trouxer dados, usa eles; se vier vazia, exibe em branco conforme solicitado
-            cliente_exibir = st.session_state.excel_cliente
-            area_exibir = st.session_state.excel_area
+            cliente_exibir = st.session_state.excel_cliente if st.session_state.excel_cliente else item.get('cliente', '')
+            area_exibir = st.session_state.excel_area if st.session_state.excel_area else item['area']
 
-            foto_ok_val = item.get('foto_ok')
+            foto_ok_val = st.session_state.excel_foto_ok if st.session_state.excel_foto_ok else item.get('foto_ok')
             img_ok_tag = f'<img src="{foto_ok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_ok_val and pd.notnull(foto_ok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
             
-            foto_nok_val = item.get('foto_nok')
+            foto_nok_val = st.session_state.excel_foto_nok if st.session_state.excel_foto_nok else item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
             html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>{img_ok_tag}</div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>{img_nok_tag}</div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
