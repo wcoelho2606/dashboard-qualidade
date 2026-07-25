@@ -77,7 +77,8 @@ except Exception as e:
     st.error("Erro ao conectar ao banco de dados. Verifique as credenciais.")
     st.stop()
 
-# 2. Carregar e processar dados em tempo real
+# 2. Carregar e processar dados em tempo real com Cache Otimizado
+@st.cache_data(ttl=300)
 def carregar_dados():
     try:
         resposta = supabase.table("alertas").select("*").execute()
@@ -206,9 +207,10 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<small style='color: #64748B;'>Painel Sincronizado</small>", unsafe_allow_html=True)
 
-if df_alertas.empty:
+if df_alertas.empty and menu_opcao != "➕ Novo Alerta":
     st.warning("Aguardando carregamento ou sem dados cadastrados no Supabase.")
-    st.stop()
+    if menu_opcao != "➕ Novo Alerta":
+        st.stop()
 
 # --- 1. TELA: VISÃO GERAL ---
 if menu_opcao == "🏠 Visão Geral":
@@ -329,9 +331,6 @@ if menu_opcao == "🏠 Visão Geral":
                 fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
 
-    # =========================================================================
-    # ====== FLUXO DE TRATATIVAS INTERATIVO (ESTILO DA SUA IMAGEM) ======
-    # =========================================================================
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### FLUXO DE TRATATIVAS")
     
@@ -440,7 +439,8 @@ elif menu_opcao == "➕ Novo Alerta":
 
                 try:
                     supabase.table("alertas").insert(novo_registro).execute()
-                    st.success(f"🎉 Alerta {id_alerta} salvo com sucesso! Agora adicione as fotos no menu 'Gerenciar Fotos'.")
+                    st.cache_data.clear() # Limpa o cache para buscar o dado novo imediatamente
+                    st.toast(f"Alerta {id_alerta} cadastrado com sucesso!", icon="🎉")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
@@ -548,7 +548,8 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                     "responsavel_implementacao": novo_resp_impl,
                     "validador_qualidade": novo_validador
                 }).eq("id", aq_selecionada).execute()
-                st.success("Dados salvos com sucesso!")
+                st.cache_data.clear()
+                st.toast("Dados salvos com sucesso!", icon="✅")
                 st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -570,7 +571,8 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                         dados_volta["dias_restantes"] = dias_atuais
 
                     supabase.table("alertas").update(dados_volta).eq("id", aq_selecionada).execute()
-                    st.warning(f"Alerta retornado para a Etapa {etapa_anterior}!")
+                    st.cache_data.clear()
+                    st.toast(f"Alerta retornado para a Etapa {etapa_anterior}!", icon="⚠️")
                     st.rerun()
 
         with col_B2:
@@ -587,7 +589,8 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                         dados_up["dias_restantes"] = 0
                     
                     supabase.table("alertas").update(dados_up).eq("id", aq_selecionada).execute()
-                    st.success(f"Alerta avançado para a etapa {nova_etapa}!")
+                    st.cache_data.clear()
+                    st.toast(f"Alerta avançado para a etapa {nova_etapa}!", icon="🚀")
                     st.rerun()
             else:
                 st.success("Fluxo Concluído!")
@@ -602,7 +605,8 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
                         "status": status_reaberto,
                         "dias_restantes": dias_atuais
                     }).eq("id", aq_selecionada).execute()
-                    st.warning("Alerta retornado para a Etapa 2!")
+                    st.cache_data.clear()
+                    st.toast("Alerta retornado para a Etapa 2!", icon="🔄")
                     st.rerun()
 
 # =======================================================
@@ -649,7 +653,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             arquivo_nok = st.file_uploader("📁 Enviar Foto NOK (Computador)", type=["jpg", "jpeg", "png"], key="arquivo_nok_unico")
             st.markdown("<small>Ou cole da área de transferência:</small>", unsafe_allow_html=True)
             paste_result_nok = paste_image_button(label="📋 Colar Foto NOK (Ctrl+V)", key="paste_nok_unico", background_color="#EF4444")
-            remover_nok = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="remover_nok_unico")
+            remover_nok_v = st.checkbox("🗑️ Remover/Apagar Foto NOK atual", key="remover_nok_unico")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("💾 Salvar Alterações e Atualizar Fotos", type="primary", use_container_width=True):
@@ -664,7 +668,7 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
                 dados_atualizacao_fotos["foto_ok"] = processar_e_converter_imagem(arquivo_ok, tamanho_alvo=(1000, 800))
                 
             # Processamento Foto NOK
-            if remover_ok:
+            if remover_nok_v:
                 dados_atualizacao_fotos["foto_nok"] = None
             elif paste_result_nok.image_data is not None:
                 dados_atualizacao_fotos["foto_nok"] = processar_e_converter_imagem(paste_result_nok.image_data, tamanho_alvo=(1000, 800))
@@ -674,7 +678,8 @@ elif menu_opcao == "🖼️ Gerenciar Fotos":
             if dados_atualizacao_fotos:
                 try:
                     supabase.table("alertas").update(dados_atualizacao_fotos).eq("id", aq_foto_escolhida).execute()
-                    st.success("🎉 Fotos atualizadas com sucesso!")
+                    st.cache_data.clear()
+                    st.toast("Fotos atualizadas com sucesso!", icon="📸")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao salvar fotos no banco: {e}")
@@ -727,7 +732,6 @@ elif menu_opcao == "📈 Análises":
     st.markdown("---")
 
     if not df_alertas.empty and "defeito" in df_alertas.columns:
-        # Agrupamento para Curva de Pareto
         df_pareto = df_alertas["defeito"].value_counts().reset_index()
         df_pareto.columns = ["Defeito", "Quantidade"]
         df_pareto = df_pareto.sort_values(by="Quantidade", ascending=False)
@@ -736,7 +740,6 @@ elif menu_opcao == "📈 Análises":
 
         fig_pareto = go.Figure()
         
-        # Barras de Quantidade
         fig_pareto.add_trace(go.Bar(
             x=df_pareto["Defeito"], 
             y=df_pareto["Quantidade"], 
@@ -745,7 +748,6 @@ elif menu_opcao == "📈 Análises":
             yaxis="y1"
         ))
         
-        # Linha Acumulada 80/20
         fig_pareto.add_trace(go.Scatter(
             x=df_pareto["Defeito"], 
             y=df_pareto["Acumulado (%)"], 
@@ -792,10 +794,8 @@ elif menu_opcao == "📄 Relatórios":
 
         st.markdown(f"**Total de registros filtrados:** `{len(df_relatorio)}`")
         
-        # Exibição da tabela completa formatada
         st.dataframe(df_relatorio, use_container_width=True, hide_index=True)
 
-        # Botão de exportação para CSV
         csv_data = df_relatorio.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Baixar Relatório em Formato CSV",
