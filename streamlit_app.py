@@ -8,6 +8,7 @@ from supabase import create_client
 import base64
 from io import BytesIO
 from PIL import Image, ImageOps
+import xlrd
 
 # Configuração da página executiva
 st.set_page_config(
@@ -127,28 +128,6 @@ def colorir_dias(val):
     elif val <= 5: return 'color: #F59E0B; font-weight: bold;'
     return 'color: #10B981; font-weight: bold;'
 
-def processar_e_converter_imagem(imagem_input, tamanho_alvo=(1000, 800)):
-    if imagem_input is not None:
-        try:
-            if isinstance(imagem_input, Image.Image):
-                img = imagem_input
-            else:
-                img = Image.open(imagem_input)
-                
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            img_processada = ImageOps.fit(img, tamanho_alvo, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-            
-            buffered = BytesIO()
-            img_processada.save(buffered, format="JPEG", quality=95)
-            base64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-            return f"data:image/jpeg;base64,{base64_str}"
-        except Exception as e:
-            st.error(f"Erro ao processar imagem: {e}")
-            return None
-    return None
-
 def gerar_proximo_id(df):
     ano_atual = datetime.now().strftime("%Y")
     prefixo = f"AQ-{ano_atual}-"
@@ -246,20 +225,18 @@ if menu_opcao == "🏠 Visão Geral":
             
             aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta para ver o Relatório Oficial:", df_abertos["id"].tolist())
             
-            # --- BOTÃO PARA CARREGAR PLANILHA EXCEL ---
+            # --- CARREGAR PLANILHA EXCEL OFICIAL ---
             st.markdown("---")
-            st.markdown("📁 **Vincular Planilha do Alerta (Excel):**")
+            st.markdown("📁 **Carregar Planilha do Alerta (.xls / .xlsx):**")
+            up_excel = st.file_uploader("Selecione o arquivo Excel do Alerta", type=["xls", "xlsx"], key="up_excel_vis")
             
-            with st.expander("📤 Carregar arquivo Excel para o AQ selecionado"):
-                up_excel = st.file_uploader("Selecionar arquivo .xlsx", type=["xlsx", "xls"], key="up_excel_vis")
-                
-                if st.button("Salvar Referência do Excel", type="primary"):
-                    if up_excel:
-                        st.cache_data.clear()
-                        st.toast("Planilha vinculada com sucesso!", icon="📎")
-                        st.rerun()
-                    else:
-                        st.warning("Selecione um arquivo Excel primeiro.")
+            if up_excel:
+                try:
+                    # Lê a aba de Alerta da Qualidade do arquivo enviado
+                    df_excel_alerta = pd.read_excel(up_excel, sheet_name='2 Alerta da Qualidade')
+                    st.success("Planilha carregada com sucesso! Exibindo o relatório oficial abaixo.")
+                except Exception as e:
+                    st.error(f"Erro ao ler o Excel: {e}")
         else:
             st.success("Nenhum alerta em aberto no momento!")
 
@@ -274,7 +251,7 @@ if menu_opcao == "🏠 Visão Geral":
             foto_nok_val = item.get('foto_nok')
             img_nok_tag = f'<img src="{foto_nok_val}" style="width: 100%; height: 260px; object-fit: contain; background-color: #fff;">' if foto_nok_val and pd.notnull(foto_nok_val) else '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
-            # --- CORREÇÃO APLICADA AQUI: unsafe_allow_html=True adicionado para renderizar o layout visual ---
+            # Renderização idêntica ao formulário oficial da ITW
             st.markdown(f"""
                 <div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     
