@@ -276,7 +276,6 @@ if menu_opcao == "🏠 Visão Geral":
                                         r_row = int(from_tag.find('xdr:row', ns).text) if from_tag.find('xdr:row', ns) is not None else 0
                                         r_col = int(from_tag.find('xdr:col', ns).text) if from_tag.find('xdr:col', ns) is not None else 0
                                         
-                                        # Consideramos fotos na região a partir da linha 7
                                         if r_row >= 7:
                                             blip = anchor.find('.//a:blip', ns)
                                             if blip is not None:
@@ -285,13 +284,12 @@ if menu_opcao == "🏠 Visão Geral":
                                                     img_path = rid_map[embed]
                                                     if img_path in z.namelist():
                                                         img_bytes_data = z.read(img_path)
-                                                        if len(img_bytes_data) > 30000: # Ignora ícones pequenos
+                                                        if len(img_bytes_data) > 30000:
                                                             buffered = BytesIO()
                                                             Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
                                                             img_str = base64.b64encode(buffered.getvalue()).decode()
                                                             final_str = f"data:image/png;base64,{img_str}"
                                                             
-                                                            # Separação por coluna: Colunas < 8 = FOTO OK, Colunas >= 8 = FOTO NOK
                                                             if r_col < 8:
                                                                 fotos_ok_list.append(final_str)
                                                             else:
@@ -335,29 +333,58 @@ if menu_opcao == "🏠 Visão Geral":
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
 
-            # Recupera lista de fotos OK
+            # Recupera lista de fotos OK e exibe LADO A LADO com flexbox
             f_ok = st.session_state.get('excel_foto_ok', [])
             if not f_ok and item.get('foto_ok'):
                 val_db = item.get('foto_ok')
                 f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
             
             if f_ok:
-                img_ok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_ok if f])
+                # Cada imagem fica em um container flexível lado a lado (ex: max-width ajustável conforme a quantidade)
+                img_ok_tag = "".join([f'<div style="flex: 1; min-width: 120px; padding: 2px;"><img src="{f}" style="width: 100%; height: 230px; object-fit: contain; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 4px;"></div>' for f in f_ok if f])
             else:
-                img_ok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
+                img_ok_tag = '<div style="text-align:center; padding:80px; color:#666; width: 100%;">Sem Foto OK</div>'
 
-            # Recupera lista de fotos NOK
+            # Recupera lista de fotos NOK e exibe LADO A LADO com flexbox
             f_nok = st.session_state.get('excel_foto_nok', [])
             if not f_nok and item.get('foto_nok'):
                 val_db_nok = item.get('foto_nok')
                 f_nok = val_db_nok.strip("[]").replace("'", "").split(", ") if str(val_db_nok).startswith("[") else [val_db_nok]
             
             if f_nok:
-                img_nok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_nok if f])
+                img_nok_tag = "".join([f'<div style="flex: 1; min-width: 120px; padding: 2px;"><img src="{f}" style="width: 100%; height: 230px; object-fit: contain; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 4px;"></div>' for f in f_nok if f])
             else:
-                img_nok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
+                img_nok_tag = '<div style="text-align:center; padding:80px; color:#666; width: 100%;">Sem Foto NOK</div>'
 
-            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div><div style="max-height: 280px; overflow-y: auto;">{img_ok_tag}</div></div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div><div style="max-height: 280px; overflow-y: auto;">{img_nok_tag}</div></div></div><div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div></div>"""
+            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;">
+                    <div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div>
+                    <div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div>
+                    <div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div>
+                </div>
+                <div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;">
+                    <div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div>
+                    <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div>
+                    <div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div>
+                    <div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div>
+                    <div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div>
+                </div>
+                <div style="display: flex; border-bottom: 2px solid #1E3A8A;">
+                    <div style="width: 50%; border-right: 1px solid #1E3A8A; display: flex; flex-direction: column;">
+                        <div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div>
+                        <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 5px; gap: 5px; background-color: #fff; min-height: 250px;">{img_ok_tag}</div>
+                    </div>
+                    <div style="width: 50%; display: flex; flex-direction: column;">
+                        <div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div>
+                        <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 5px; gap: 5px; background-color: #fff; min-height: 250px;">{img_nok_tag}</div>
+                    </div>
+                </div>
+                <div style="display: flex; padding: 10px; background-color: #f8fafc; font-size: 11px; justify-content: space-between; align-items: center;">
+                    <div><b>Responsável:</b> {item['responsavel']}</div>
+                    <div><b>Lote:</b> {item['lote']}</div>
+                    <div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div>
+                </div>
+            </div>"""
             
             components.html(html_relatorio, height=540, scrolling=True)
 
@@ -471,11 +498,18 @@ elif menu_opcao == "⚙️ Inserir Tratativa":
     for i, nome_etapa in enumerate(etapas_nomes, start=1):
         with cols_fluxo[i-1]:
             if etapa_atual == 6 or i < etapa_atual:
-                st.success(f"✅\n\n**{nome_etapa}**")
+                st.success(f"✅
+
+**{nome_etapa}**")
             elif i == etapa_atual:
-                st.warning(f"⏳\n\n**{nome_etapa}**\n*(Atual)*")
+                st.warning(f"⏳
+
+**{nome_etapa}**
+*(Atual)*")
             else:
-                st.markdown(f"⚪\n\n_{nome_etapa}_")
+                st.markdown(f"⚪
+
+_{nome_etapa}_")
 
     st.markdown("---")
     
