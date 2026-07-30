@@ -166,7 +166,7 @@ with st.sidebar:
     menu_opcao = st.radio(
         "Navegação",
         opcoes_menu,
-        index=0,
+        index=1,
         label_visibility="collapsed"
     )
     
@@ -205,181 +205,171 @@ if menu_opcao == "🏠 Visão Geral":
     with kpi5:
         st.markdown(f'<div class="kpi-card" style="background-color: #F3F4F6; color: #1F2937; border: 1px solid #D1D5DB;"><div class="kpi-title" style="color: #4B5563;">% NO PRAZO</div><div class="kpi-value" style="color: #111827;">{no_prazo_str}</div><div class="kpi-subtitle" style="color: #6B7280;">Meta: 80%</div></div>', unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### ALERTAS EM ABERTO (MONITORAMENTO)")
-    
-    df_abertos = df_alertas[df_alertas['status'] != 'ENCERRADO'].copy()
-    if not df_abertos.empty:
-        df_display = df_abertos[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
-        df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
-        styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
-        st.dataframe(styler, use_container_width=True, hide_index=True)
-    else:
-        st.success("Nenhum alerta em aberto no momento!")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### INDICADORES E ANÁLISES GRÁFICAS")
-    g_col1, g_col2, g_col3, g_col4 = st.columns(4)
-
-    with g_col1:
-        with st.container(border=True):
-            if area_dist:
-                fig1 = go.Figure(data=[go.Pie(labels=list(area_dist.keys()), values=list(area_dist.values()), hole=0.5, textinfo='label+value+percent', showlegend=False)])
-                fig1.update_layout(title=dict(text="<b>ALERTAS POR ÁREA</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=30, r=30, t=50, b=30), height=250, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-
-    with g_col2:
-        with st.container(border=True):
-            if status_dist:
-                total_status = sum(status_dist.values())
-                legenda_formatada = [f"{lbl}<br>{val} ({val/total_status*100:.1f}%)" for lbl, val in zip(status_dist.keys(), status_dist.values())]
-                fig2 = go.Figure(data=[go.Pie(labels=legenda_formatada, values=list(status_dist.values()), hole=0.5, textinfo='none', showlegend=True)])
-                fig2.update_layout(title=dict(text="<b>ALERTAS POR STATUS</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=10, t=50, b=10), height=250, legend=dict(orientation="v", valign="middle", x=0.85, y=0.5, font=dict(size=9)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-
-    with g_col3:
-        with st.container(border=True):
-            if defeito_dist:
-                df_def = pd.DataFrame(list(defeito_dist.items()), columns=['Defeito', 'Qtd']).sort_values(by='Qtd', ascending=True)
-                fig3 = go.Figure(go.Bar(x=df_def['Qtd'], y=df_def['Defeito'], orientation='h', marker_color='#0E4687', text=df_def['Qtd'], textposition='outside'))
-                fig3.update_layout(title=dict(text="<b>ALERTAS POR TIPO DE DEFEITO</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=10, r=30, t=50, b=10), height=250, xaxis=dict(showgrid=False, visible=False), yaxis=dict(showgrid=False, tickfont=dict(size=11)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
-            else:
-                st.info("Sem dados de defeitos.")
-
-    with g_col4:
-        with st.container(border=True):
-            if not df_tempo.empty:
-                fig4 = go.Figure()
-                fig4.add_trace(go.Scatter(x=df_tempo["Mês"], y=df_tempo["Dias"], mode='lines+markers+text', text=df_tempo["Dias"], textposition='top center', line=dict(color='#0284C7', width=2.5)))
-                fig4.update_layout(title=dict(text="<b>TEMPO MÉDIO DE FECHAMENTO (DIAS)</b>", x=0.5, y=0.95, font=dict(size=13, color="#1E3A8A")), margin=dict(l=20, r=20, t=50, b=10), height=250, xaxis=dict(showgrid=False), yaxis=dict(showgrid=False, range=[0, 35], tickfont=dict(size=10)), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
-
-    # --- FLUXO DE TRATATIVAS LOGO ABAIXO DOS GRÁFICOS NA VISÃO GERAL ---
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### FLUXO DE TRATATIVAS")
-    
-    # Seleciona o primeiro alerta em aberto ou padrão para exibir no fluxo da Visão Geral
-    id_fluxo_padrao = df_alertas['id'].iloc[0] if not df_alertas.empty else ""
-    if not df_abertos.empty:
-        id_fluxo_padrao = df_abertos['id'].iloc[0]
-        
-    item_v = df_alertas[df_alertas['id'] == id_fluxo_padrao].iloc[0] if not df_alertas.empty else None
-    
-    if item_v is not None:
-        d4 = str(item_v.get('data_etapa_4', '21/07/2026 20:24'))[:16]
-        r4 = item_v.get('responsavel_implementacao', 'Edson')
-        d5 = str(item_v.get('data_etapa_5', '21/07/2026 19:17'))[:16]
-        r5 = item_v.get('validador_qualidade', 'William Coelho')
-        d6 = str(item_v.get('data_etapa_6', '21/07/2026 19:17'))[:16]
-        r6 = 'Qualidade'
-
-        with st.container(border=True):
-            cols_f = st.columns(11)
-            
-            with cols_f[0]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Alerta Emitido</b><br><small style='color: #555;'>Qualidade<br>10/07/2026<br>07:15</small></div>", unsafe_allow_html=True)
-            with cols_f[1]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-            
-            with cols_f[2]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Em Análise</b><br><small style='color: #555;'>Erasmo<br>10/07/2026<br>08:40</small></div>", unsafe_allow_html=True)
-            with cols_f[3]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[4]:
-                st.markdown("<div style='text-align: center;'>🟢<br><b>Ação Definida</b><br><small style='color: #555;'>Erasmo<br>21/07/2026<br>20:24</small></div>", unsafe_allow_html=True)
-            with cols_f[5]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[6]:
-                st.markdown(f"<div style='text-align: center;'>⚙️<br><b>Em Implementação</b><br><small style='color: #555;'>{r4}<br>{d4}</small></div>", unsafe_allow_html=True)
-            with cols_f[7]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[8]:
-                st.markdown(f"<div style='text-align: center;'>📄<br><b>Aguardando Validação</b><br><small style='color: #555;'>{r5}<br>{d5}</small></div>", unsafe_allow_html=True)
-            with cols_f[9]:
-                st.markdown("<div style='text-align: center; padding-top: 25px;'>➡️</div>", unsafe_allow_html=True)
-
-            with cols_f[10]:
-                st.markdown(f"<div style='text-align: center;'>✅<br><b>Encerrado</b><br><small style='color: #555;'>{r6}<br>{d6}</small></div>", unsafe_allow_html=True)
-
-
 # =======================================================
-# ====== 2. TELA: ALERTAS DE QUALIDADE (RELATÓRIO) ======
+# ====== 2. TELA: ALERTAS DE QUALIDADE (RELATÓRIO OFICIAL)
 # =======================================================
 elif menu_opcao == "🔍 Alertas de Qualidade":
-    st.title("🔍 CONSULTA DE ALERTAS DE QUALIDADE")
-    st.markdown("Pesquise por número de AQ para visualização expandida de ponta a ponta.")
+    st.title("🔍 RELATÓRIO OFICIAL DE ALERTAS DE QUALIDADE")
+    st.markdown("Selecione o Alerta, insira o link ou carregue o arquivo Excel para extração automática de todas as fotos OK e NOK.")
     st.markdown("---")
 
-    lista_aqs_geral = df_alertas["id"].tolist()
-    if not lista_aqs_geral:
-        st.warning("Nenhum alerta cadastrado.")
-        st.stop()
+    col_tabela, col_detalhes = st.columns([1.5, 2.5])
 
-    aq_pesquisa = st.selectbox("🔍 Selecione ou digite o Nº do Alerta (AQ):", lista_aqs_geral)
-    
-    if aq_pesquisa:
-        item = df_alertas[df_alertas['id'] == aq_pesquisa].iloc[0]
-        status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
-        
-        cliente_exibir = item.get('cliente', '')
-        area_exibir = item['area']
+    with col_tabela:
+        aq_selecionada_visao = None
+        if not df_alertas.empty:
+            df_display = df_alertas[["id", "produto", "lote", "defeito", "area", "responsavel", "prazo", "dias_restantes", "status"]].copy()
+            df_display.columns = ["Nº AQ", "Produto", "Lote", "Defeito", "Área Responsável", "Responsável", "Prazo", "Dias Restantes", "Status"]
+            styler = df_display.style.map(colorir_status, subset=["Status"]).map(colorir_dias, subset=["Dias Restantes"])
+            st.dataframe(styler, use_container_width=True, hide_index=True)
+            
+            aq_selecionada_visao = st.selectbox("🔍 Selecione o Alerta:", df_alertas["id"].tolist())
+            
+            if 'last_aq_selected' not in st.session_state:
+                st.session_state.last_aq_selected = aq_selecionada_visao
 
-        f_ok = []
-        if item.get('foto_ok'):
-            val_db = item.get('foto_ok')
-            f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
-        
-        if f_ok:
-            img_ok_tag = "".join([f'<div style="flex: 1; min-width: 140px; padding: 4px;"><img src="{f}" style="width: 100%; height: 280px; object-fit: contain; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 4px;"></div>' for f in f_ok if f])
+            if st.session_state.last_aq_selected != aq_selecionada_visao:
+                st.session_state.last_aq_selected = aq_selecionada_visao
+                st.session_state.excel_cliente = ""
+                st.session_state.excel_area = ""
+                st.session_state.excel_foto_ok = []
+                st.session_state.excel_foto_nok = []
+                st.rerun()
+
+            if 'excel_cliente' not in st.session_state:
+                st.session_state.excel_cliente = ""
+            if 'excel_area' not in st.session_state:
+                st.session_state.excel_area = ""
+            if 'excel_foto_ok' not in st.session_state:
+                st.session_state.excel_foto_ok = []
+            if 'excel_foto_nok' not in st.session_state:
+                st.session_state.excel_foto_nok = []
+            
+            st.markdown("---")
+            st.markdown("🔗 **Vincular Link do Alerta ou Arquivo:**")
+            link_alerta = st.text_input("Link do Arquivo / Alerta (SharePoint, Drive, etc):", placeholder="https://...")
+            
+            up_excel = st.file_uploader("Ou selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key=f"up_excel_{aq_selecionada_visao}")
+            
+            if up_excel:
+                try:
+                    import openpyxl
+                    
+                    wb = openpyxl.load_workbook(up_excel, data_only=True)
+                    if '2 Alerta da Qualidade' in wb.sheetnames:
+                        sh_aq = wb['2 Alerta da Qualidade']
+                        
+                        st.session_state.excel_cliente = str(sh_aq['I5'].value or "").strip() if sh_aq['I5'].value else ""
+                        st.session_state.excel_area = str(sh_aq['E5'].value or "").strip() if sh_aq['E5'].value else ""
+                        
+                        fotos_ok_list = []
+                        fotos_nok_list = []
+                        
+                        up_bytes = BytesIO(up_excel.getvalue())
+                        with zipfile.ZipFile(up_bytes, 'r') as z:
+                            if 'xl/drawings/drawing2.xml' in z.namelist() and 'xl/drawings/_rels/drawing2.xml.rels' in z.namelist():
+                                d2_xml = z.read('xl/drawings/drawing2.xml')
+                                d2_rels = z.read('xl/drawings/_rels/drawing2.xml.rels')
+                                
+                                rels_root = ET.fromstring(d2_rels)
+                                rid_map = {rel.attrib['Id']: rel.attrib['Target'].replace('../', 'xl/') for rel in rels_root.findall('{http://schemas.openxmlformats.org/package/2006/relationships}Relationship')}
+                                
+                                root_d2 = ET.fromstring(d2_xml)
+                                ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', 'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+                                
+                                for anchor in root_d2.findall('.//xdr:twoCellAnchor', ns) + root_d2.findall('.//xdr:oneCellAnchor', ns):
+                                    from_tag = anchor.find('xdr:from', ns)
+                                    if from_tag is not None:
+                                        r_row = int(from_tag.find('xdr:row', ns).text) if from_tag.find('xdr:row', ns) is not None else 0
+                                        r_col = int(from_tag.find('xdr:col', ns).text) if from_tag.find('xdr:col', ns) is not None else 0
+                                        
+                                        if r_row >= 7:
+                                            blip = anchor.find('.//a:blip', ns)
+                                            if blip is not None:
+                                                embed = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                                if embed in rid_map:
+                                                    img_path = rid_map[embed]
+                                                    if img_path in z.namelist():
+                                                        img_bytes_data = z.read(img_path)
+                                                        if len(img_bytes_data) > 30000:
+                                                            buffered = BytesIO()
+                                                            Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
+                                                            img_str = base64.b64encode(buffered.getvalue()).decode()
+                                                            final_str = f"data:image/png;base64,{img_str}"
+                                                            
+                                                            if r_col < 8:
+                                                                fotos_ok_list.append(final_str)
+                                                            else:
+                                                                fotos_nok_list.append(final_str)
+                        
+                        st.session_state.excel_foto_ok = fotos_ok_list
+                        st.session_state.excel_foto_nok = fotos_nok_list
+                        
+                        st.success(f"Extracão concluída! Encontradas {len(fotos_ok_list)} foto(s) OK e {len(fotos_nok_list)} foto(s) NOK.")
+                        
+                        if st.button("💾 Salvar Link, Fotos e Dados na AQ Selecionada"):
+                            dados_update = {}
+                            if link_alerta:
+                                dados_update["link_alerta"] = link_alerta
+                            if st.session_state.excel_cliente:
+                                dados_update["cliente"] = st.session_state.excel_cliente
+                            if st.session_state.excel_area:
+                                dados_update["area"] = st.session_state.excel_area
+                            if st.session_state.excel_foto_ok:
+                                dados_update["foto_ok"] = str(st.session_state.excel_foto_ok) if len(st.session_state.excel_foto_ok) > 1 else st.session_state.excel_foto_ok[0]
+                            if st.session_state.excel_foto_nok:
+                                dados_update["foto_nok"] = str(st.session_state.excel_foto_nok) if len(st.session_state.excel_foto_nok) > 1 else st.session_state.excel_foto_nok[0]
+                                
+                            if dados_update:
+                                supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
+                                st.cache_data.clear()
+                                st.toast("Informações salvas no Supabase com sucesso!", icon="🚀")
+                                st.rerun()
+                            else:
+                                st.warning("Nenhum dado novo para salvar.")
+                    else:
+                        st.error("A aba '2 Alerta da Qualidade' não foi encontrada no arquivo.")
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivo: {e}")
         else:
-            img_ok_tag = '<div style="text-align:center; padding:100px; color:#666; width: 100%;">Sem Foto OK</div>'
+            st.warning("Nenhum alerta cadastrado.")
 
-        f_nok = []
-        if item.get('foto_nok'):
-            val_db_nok = item.get('foto_nok')
-            f_nok = val_db_nok.strip("[]").replace("'", "").split(", ") if str(val_db_nok).startswith("[") else [val_db_nok]
-        
-        if f_nok:
-            img_nok_tag = "".join([f'<div style="flex: 1; min-width: 140px; padding: 4px;"><img src="{f}" style="width: 100%; height: 280px; object-fit: contain; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 4px;"></div>' for f in f_nok if f])
-        else:
-            img_nok_tag = '<div style="text-align:center; padding:100px; color:#666; width: 100%;">Sem Foto NOK</div>'
+    with col_detalhes:
+        if aq_selecionada_visao:
+            item = df_alertas[df_alertas['id'] == aq_selecionada_visao].iloc[0]
+            status_cor = "#EF4444" if item['status'] == "VENCIDO" else ("#F59E0B" if item['status'] == "PRÓX. DO PRAZO" else "#10B981")
+            
+            cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
+            area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
+            link_db = item.get('link_alerta', '')
 
-        html_relatorio_grande = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            <div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;">
-                <div style="padding: 12px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 15px; text-align: center;">ITW<br><span style="font-size: 10px; font-weight: normal;">Automotivo do Brasil</span></div>
-                <div style="padding: 12px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div>
-                <div style="padding: 12px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 12px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 18px; font-weight: bold;">{item['id']}</span></div>
-            </div>
-            <div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 12px;">
-                <div style="width: 35%; padding: 10px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 13px;">{item['defeito']}</span></div>
-                <div style="width: 15%; padding: 10px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div>
-                <div style="width: 15%; padding: 10px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div>
-                <div style="width: 18%; padding: 10px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div>
-                <div style="width: 17%; padding: 10px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div>
-            </div>
-            <div style="display: flex; border-bottom: 2px solid #1E3A8A;">
-                <div style="width: 50%; border-right: 1px solid #1E3A8A; display: flex; flex-direction: column;">
-                    <div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px;">FOTO OK</div>
-                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 8px; gap: 8px; background-color: #fff; min-height: 300px;">{img_ok_tag}</div>
-                </div>
-                <div style="width: 50%; display: flex; flex-direction: column;">
-                    <div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 6px; font-size: 14px;">FOTO NOK</div>
-                    <div style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; padding: 8px; gap: 8px; background-color: #fff; min-height: 300px;">{img_nok_tag}</div>
-                </div>
-            </div>
-            <div style="display: flex; padding: 12px; background-color: #f8fafc; font-size: 12px; justify-content: space-between; align-items: center;">
-                <div><b>Responsável:</b> {item['responsavel']}</div>
-                <div><b>Lote:</b> {item['lote']}</div>
-                <div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{item['status']}</span></div>
-            </div>
-        </div>"""
-        
-        components.html(html_relatorio_grande, height=600, scrolling=True)
+            # Fotos OK
+            f_ok = st.session_state.get('excel_foto_ok', [])
+            if not f_ok and item.get('foto_ok'):
+                val_db = item.get('foto_ok')
+                f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
+            
+            if f_ok:
+                img_ok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_ok if f])
+            else:
+                img_ok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
 
+            # Fotos NOK
+            f_nok = st.session_state.get('excel_foto_nok', [])
+            if not f_nok and item.get('foto_nok'):
+                val_db_nok = item.get('foto_nok')
+                f_nok = val_db_nok.strip("[]").replace("'", "").split(", ") if str(val_db_nok).startswith("[") else [val_db_nok]
+            
+            if f_nok:
+                img_nok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_nok if f])
+            else:
+                img_nok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
+
+            link_html = f'<div style="margin-top: 5px; font-size: 11px;"><b>Link do Arquivo:</b> <a href="{link_db}" target="_blank">{link_db}</a></div>' if link_db and pd.notnull(link_db) else ''
+
+            html_relatorio = f"""<div style="border: 2px solid #1E3A8A; border-radius: 6px; background-color: white; font-family: 'Segoe UI', sans-serif; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"><div style="display: flex; border-bottom: 2px solid #1E3A8A; background-color: #f8fafc;"><div style="padding: 10px; border-right: 2px solid #1E3A8A; width: 20%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 14px; text-align: center;">ITW<br><span style="font-size: 9px; font-weight: normal;">Automotivo do Brasil</span></div><div style="padding: 10px; width: 60%; display: flex; align-items: center; justify-content: center;"><h2 style="color: #DC2626; margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-align: center;">ALERTA DA QUALIDADE</h2></div><div style="padding: 10px; border-left: 2px solid #1E3A8A; width: 20%; text-align: center; background-color: #f1f5f9;"><span style="font-size: 11px; font-weight: bold;">Nº :</span><br><span style="color: #2563EB; font-size: 16px; font-weight: bold;">{item['id']}</span></div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A; font-size: 11px;"><div style="width: 35%; padding: 8px; border-right: 1px solid #cbd5e1;"><b>DESCRIÇÃO DO PROBLEMA:</b><br><span style="color: #2563EB; font-weight: 600; font-size: 12px;">{item['defeito']}</span></div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Cliente:</b><br>{cliente_exibir}</div><div style="width: 15%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Área:</b><br>{area_exibir}</div><div style="width: 18%; padding: 8px; border-right: 1px solid #cbd5e1; text-align: center;"><b>Código da Peça:</b><br><span style="color: #2563EB; font-weight: bold;">{item['produto']}</span></div><div style="width: 17%; padding: 8px; text-align: center;"><b>Data / Prazo:</b><br>{item['prazo']}</div></div><div style="display: flex; border-bottom: 2px solid #1E3A8A;"><div style="width: 50%; border-right: 1px solid #1E3A8A;"><div style="background-color: #10B981; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO OK</div><div style="max-height: 280px; overflow-y: auto;">{img_ok_tag}</div></div><div style="width: 50%;"><div style="background-color: #EF4444; color: white; text-align: center; font-weight: bold; padding: 4px; font-size: 13px;">FOTO NOK</div><div style="max-height: 280px; overflow-y: auto;">{img_nok_tag}</div></div></div><div style="padding: 10px; background-color: #f8fafc; font-size: 11px;"><div style="display: flex; justify-content: space-between; align-items: center;"><div><b>Responsável:</b> {item['responsavel']}</div><div><b>Lote:</b> {item['lote']}</div><div><b>Status:</b> <span style="color: white; background-color: {status_cor}; padding: 2px 6px; border-radius: 3px; font-weight: bold;">{item['status']}</span></div></div>{link_html}</div></div>"""
+            
+            components.html(html_relatorio, height=560, scrolling=True)
 
 # =======================================================
 # ====== 3. TELA: NOVO ALERTA ===========================
