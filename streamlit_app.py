@@ -11,6 +11,7 @@ from PIL import Image, ImageOps
 import streamlit.components.v1 as components
 import zipfile
 import xml.etree.ElementTree as ET
+import json
 
 # Configuração da página executiva
 st.set_page_config(
@@ -210,7 +211,7 @@ if menu_opcao == "🏠 Visão Geral":
 # =======================================================
 elif menu_opcao == "🔍 Alertas de Qualidade":
     st.title("🔍 RELATÓRIO OFICIAL DE ALERTAS DE QUALIDADE")
-    st.markdown("Selecione o Alerta, informe o link corporativo, anexe o arquivo Excel correspondente e clique em salvar.")
+    st.markdown("Selecione o Alerta, informe o link, anexe o arquivo Excel e clique em salvar para registrar todas as fotos.")
     st.markdown("---")
 
     col_tabela, col_detalhes = st.columns([1.5, 2.5])
@@ -283,13 +284,15 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                                 root_d2 = ET.fromstring(d2_xml)
                                 ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', 'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
                                 
+                                # Coleta todas as imagens a partir da linha 9 (onde ficam as fotos OK e NOK no layout do Excel)
+                                anchors_temp = []
                                 for anchor in root_d2.findall('.//xdr:twoCellAnchor', ns) + root_d2.findall('.//xdr:oneCellAnchor', ns):
                                     from_tag = anchor.find('xdr:from', ns)
                                     if from_tag is not None:
                                         r_row = int(from_tag.find('xdr:row', ns).text) if from_tag.find('xdr:row', ns) is not None else 0
                                         r_col = int(from_tag.find('xdr:col', ns).text) if from_tag.find('xdr:col', ns) is not None else 0
                                         
-                                        if r_row >= 7:
+                                        if r_row >= 9:
                                             blip = anchor.find('.//a:blip', ns)
                                             if blip is not None:
                                                 embed = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
@@ -302,16 +305,22 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                                                             Image.open(BytesIO(img_bytes_data)).save(buffered, format="PNG")
                                                             img_str = base64.b64encode(buffered.getvalue()).decode()
                                                             final_str = f"data:image/png;base64,{img_str}"
+                                                            anchors_temp.append((r_row, r_col, final_str))
                                                             
-                                                            if r_col < 8:
-                                                                fotos_ok_list.append(final_str)
-                                                            else:
-                                                                fotos_nok_list.append(final_str)
+                                # Ordena por linha e coluna para manter a ordem correta (esquerda para direita)
+                                anchors_temp.sort(key=lambda x: (x[0], x[1]))
+                                
+                                # Divisão exata com base nas colunas: FOTO OK fica na esquerda (colunas < 7), FOTO NOK fica na direita (colunas >= 7)
+                                for _, c, f_str in anchors_temp:
+                                    if c < 7:
+                                        fotos_ok_list.append(f_str)
+                                    else:
+                                        fotos_nok_list.append(f_str)
                         
                         st.session_state.excel_foto_ok = fotos_ok_list
                         st.session_state.excel_foto_nok = fotos_nok_list
                         
-                        st.success(f"Extracão concluída! Encontradas {len(fotos_ok_list)} foto(s) OK e {len(fotos_nok_list)} foto(s) NOK.")
+                        st.success(f"Extração concluída! Encontradas {len(fotos_ok_list)} foto(s) OK e {len(fotos_nok_list)} foto(s) NOK.")
                     else:
                         st.error("A aba '2 Alerta da Qualidade' não foi encontrada no arquivo.")
                 except Exception as e:
@@ -320,23 +329,25 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("💾 Salvar Fotos e Dados na AQ Selecionada", type="primary", use_container_width=True):
                 dados_update = {}
+                if st.session_state.excel_link:
+                    dados_update["link_alerta"] = st.session_state.excel_link
                 if st.session_state.excel_cliente:
                     dados_update["cliente"] = st.session_state.excel_cliente
                 if st.session_state.excel_area:
                     dados_update["area"] = st.session_state.excel_area
                 if st.session_state.excel_foto_ok:
-                    dados_update["foto_ok"] = str(st.session_state.excel_foto_ok) if len(st.session_state.excel_foto_ok) > 1 else st.session_state.excel_foto_ok[0]
+                    dados_update["foto_ok"] = json.dumps(st.session_state.excel_foto_ok)
                 if st.session_state.excel_foto_nok:
-                    dados_update["foto_nok"] = str(st.session_state.excel_foto_nok) if len(st.session_state.excel_foto_nok) > 1 else st.session_state.excel_foto_nok[0]
+                    dados_update["foto_nok"] = json.dumps(st.session_state.excel_foto_nok)
                     
                 if dados_update:
                     try:
                         supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
                         st.cache_data.clear()
-                        st.toast("Informações salvas no Supabase com sucesso!", icon="🚀")
+                        st.toast("Informações e fotos salvas no Supabase com sucesso!", icon="🚀")
                         st.rerun()
                     except Exception as db_err:
-                        st.error(f"Erro ao salvar no banco de dados: {db_err}")
+                        st.error(f"Erro ao salvar no banco de dados (verifique se a coluna link_alerta existe no Supabase): {db_err}")
                 else:
                     st.warning("Nenhum dado novo ou foto para salvar.")
         else:
@@ -350,27 +361,38 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
             
-            link_db = st.session_state.get('excel_link', '')
+            link_db = st.session_state.get('excel_link', '') if st.session_state.get('excel_link') else item.get('link_alerta', '')
+
+            # Função auxiliar para decodificar listas de fotos salvas no Supabase
+            def parse_fotos(val):
+                if not val or pd.isna(val):
+                    return []
+                val_str = str(val).strip()
+                if val_str.startswith("["):
+                    try:
+                        return json.loads(val_str)
+                    except:
+                        return [val_str.strip("[]").replace("'", "").replace('"', "")]
+                return [val_str]
 
             # Fotos OK
             f_ok = st.session_state.get('excel_foto_ok', [])
-            if not f_ok and item.get('foto_ok'):
-                val_db = item.get('foto_ok')
-                f_ok = val_db.strip("[]").replace("'", "").split(", ") if str(val_db).startswith("[") else [val_db]
+            if not f_ok:
+                f_ok = parse_fotos(item.get('foto_ok'))
             
             if f_ok:
-                img_ok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_ok if f])
+                # Exibe lado a lado em grid flexível se houver mais de uma foto
+                img_ok_tag = f"""<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; padding: 5px;">""" + "".join([f'<img src="{f}" style="width: 48%; height: 220px; object-fit: contain; background-color: #fff; border: 1px solid #ddd; border-radius: 4px;">' for f in f_ok if f]) + "</div>"
             else:
                 img_ok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
 
             # Fotos NOK
             f_nok = st.session_state.get('excel_foto_nok', [])
-            if not f_nok and item.get('foto_nok'):
-                val_db_nok = item.get('foto_nok')
-                f_nok = val_db_nok.strip("[]").replace("'", "").split(", ") if str(val_db_nok).startswith("[") else [val_db_nok]
+            if not f_nok:
+                f_nok = parse_fotos(item.get('foto_nok'))
             
             if f_nok:
-                img_nok_tag = "".join([f'<img src="{f}" style="width: 100%; height: 240px; object-fit: contain; background-color: #fff; margin-bottom: 5px;">' for f in f_nok if f])
+                img_nok_tag = f"""<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; padding: 5px;">""" + "".join([f'<img src="{f}" style="width: 48%; height: 220px; object-fit: contain; background-color: #fff; border: 1px solid #ddd; border-radius: 4px;">' for f in f_nok if f]) + "</div>"
             else:
                 img_nok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto NOK</div>'
 
