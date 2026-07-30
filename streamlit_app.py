@@ -318,10 +318,8 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                     st.error(f"Erro ao processar arquivo: {e}")
 
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("💾 Salvar Link, Fotos e Dados na AQ Selecionada", type="primary", use_container_width=True):
+            if st.button("💾 Salvar Fotos e Dados na AQ Selecionada", type="primary", use_container_width=True):
                 dados_update = {}
-                if st.session_state.excel_link:
-                    dados_update["link_alerta"] = st.session_state.excel_link
                 if st.session_state.excel_cliente:
                     dados_update["cliente"] = st.session_state.excel_cliente
                 if st.session_state.excel_area:
@@ -332,10 +330,13 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                     dados_update["foto_nok"] = str(st.session_state.excel_foto_nok) if len(st.session_state.excel_foto_nok) > 1 else st.session_state.excel_foto_nok[0]
                     
                 if dados_update:
-                    supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
-                    st.cache_data.clear()
-                    st.toast("Informações e link salvos no Supabase com sucesso!", icon="🚀")
-                    st.rerun()
+                    try:
+                        supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
+                        st.cache_data.clear()
+                        st.toast("Informações salvas no Supabase com sucesso!", icon="🚀")
+                        st.rerun()
+                    except Exception as db_err:
+                        st.error(f"Erro ao salvar no banco de dados: {db_err}")
                 else:
                     st.warning("Nenhum dado novo ou foto para salvar.")
         else:
@@ -349,7 +350,7 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
             
-            link_db = st.session_state.get('excel_link', '') if st.session_state.get('excel_link') else item.get('link_alerta', '')
+            link_db = st.session_state.get('excel_link', '')
 
             # Fotos OK
             f_ok = st.session_state.get('excel_foto_ok', [])
