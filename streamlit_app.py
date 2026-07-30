@@ -210,7 +210,7 @@ if menu_opcao == "🏠 Visão Geral":
 # =======================================================
 elif menu_opcao == "🔍 Alertas de Qualidade":
     st.title("🔍 RELATÓRIO OFICIAL DE ALERTAS DE QUALIDADE")
-    st.markdown("Selecione o Alerta, insira o link ou carregue o arquivo Excel para extração automática de todas as fotos OK e NOK.")
+    st.markdown("Selecione o Alerta, informe o link corporativo, anexe o arquivo Excel correspondente e clique em salvar.")
     st.markdown("---")
 
     col_tabela, col_detalhes = st.columns([1.5, 2.5])
@@ -234,6 +234,7 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                 st.session_state.excel_area = ""
                 st.session_state.excel_foto_ok = []
                 st.session_state.excel_foto_nok = []
+                st.session_state.excel_link = ""
                 st.rerun()
 
             if 'excel_cliente' not in st.session_state:
@@ -244,12 +245,17 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                 st.session_state.excel_foto_ok = []
             if 'excel_foto_nok' not in st.session_state:
                 st.session_state.excel_foto_nok = []
+            if 'excel_link' not in st.session_state:
+                st.session_state.excel_link = ""
             
             st.markdown("---")
-            st.markdown("🔗 **Vincular Link do Alerta ou Arquivo:**")
-            link_alerta = st.text_input("Link do Arquivo / Alerta (SharePoint, Drive, etc):", placeholder="https://...")
+            st.markdown("🔗 **Vincular Link e Carregar Fotos do Alerta:**")
             
-            up_excel = st.file_uploader("Ou selecione o arquivo Excel (.xlsx) do Alerta", type=["xlsx"], key=f"up_excel_{aq_selecionada_visao}")
+            link_input = st.text_input("Link do Arquivo / Alerta (SharePoint, Drive, etc):", value=st.session_state.excel_link, placeholder="https://...")
+            if link_input:
+                st.session_state.excel_link = link_input
+            
+            up_excel = st.file_uploader("Anexar arquivo Excel (.xlsx) do Alerta para ler as fotos", type=["xlsx"], key=f"up_excel_{aq_selecionada_visao}")
             
             if up_excel:
                 try:
@@ -306,31 +312,32 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                         st.session_state.excel_foto_nok = fotos_nok_list
                         
                         st.success(f"Extracão concluída! Encontradas {len(fotos_ok_list)} foto(s) OK e {len(fotos_nok_list)} foto(s) NOK.")
-                        
-                        if st.button("💾 Salvar Link, Fotos e Dados na AQ Selecionada"):
-                            dados_update = {}
-                            if link_alerta:
-                                dados_update["link_alerta"] = link_alerta
-                            if st.session_state.excel_cliente:
-                                dados_update["cliente"] = st.session_state.excel_cliente
-                            if st.session_state.excel_area:
-                                dados_update["area"] = st.session_state.excel_area
-                            if st.session_state.excel_foto_ok:
-                                dados_update["foto_ok"] = str(st.session_state.excel_foto_ok) if len(st.session_state.excel_foto_ok) > 1 else st.session_state.excel_foto_ok[0]
-                            if st.session_state.excel_foto_nok:
-                                dados_update["foto_nok"] = str(st.session_state.excel_foto_nok) if len(st.session_state.excel_foto_nok) > 1 else st.session_state.excel_foto_nok[0]
-                                
-                            if dados_update:
-                                supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
-                                st.cache_data.clear()
-                                st.toast("Informações salvas no Supabase com sucesso!", icon="🚀")
-                                st.rerun()
-                            else:
-                                st.warning("Nenhum dado novo para salvar.")
                     else:
                         st.error("A aba '2 Alerta da Qualidade' não foi encontrada no arquivo.")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("💾 Salvar Link, Fotos e Dados na AQ Selecionada", type="primary", use_container_width=True):
+                dados_update = {}
+                if st.session_state.excel_link:
+                    dados_update["link_alerta"] = st.session_state.excel_link
+                if st.session_state.excel_cliente:
+                    dados_update["cliente"] = st.session_state.excel_cliente
+                if st.session_state.excel_area:
+                    dados_update["area"] = st.session_state.excel_area
+                if st.session_state.excel_foto_ok:
+                    dados_update["foto_ok"] = str(st.session_state.excel_foto_ok) if len(st.session_state.excel_foto_ok) > 1 else st.session_state.excel_foto_ok[0]
+                if st.session_state.excel_foto_nok:
+                    dados_update["foto_nok"] = str(st.session_state.excel_foto_nok) if len(st.session_state.excel_foto_nok) > 1 else st.session_state.excel_foto_nok[0]
+                    
+                if dados_update:
+                    supabase.table("alertas").update(dados_update).eq("id", aq_selecionada_visao).execute()
+                    st.cache_data.clear()
+                    st.toast("Informações e link salvos no Supabase com sucesso!", icon="🚀")
+                    st.rerun()
+                else:
+                    st.warning("Nenhum dado novo ou foto para salvar.")
         else:
             st.warning("Nenhum alerta cadastrado.")
 
@@ -341,7 +348,8 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
             
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
-            link_db = item.get('link_alerta', '')
+            
+            link_db = st.session_state.get('excel_link', '') if st.session_state.get('excel_link') else item.get('link_alerta', '')
 
             # Fotos OK
             f_ok = st.session_state.get('excel_foto_ok', [])
