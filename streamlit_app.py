@@ -284,7 +284,6 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                                 root_d2 = ET.fromstring(d2_xml)
                                 ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing', 'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
                                 
-                                # Coleta todas as imagens a partir da linha 9 (onde ficam as fotos OK e NOK no layout do Excel)
                                 anchors_temp = []
                                 for anchor in root_d2.findall('.//xdr:twoCellAnchor', ns) + root_d2.findall('.//xdr:oneCellAnchor', ns):
                                     from_tag = anchor.find('xdr:from', ns)
@@ -307,10 +306,8 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                                                             final_str = f"data:image/png;base64,{img_str}"
                                                             anchors_temp.append((r_row, r_col, final_str))
                                                             
-                                # Ordena por linha e coluna para manter a ordem correta (esquerda para direita)
                                 anchors_temp.sort(key=lambda x: (x[0], x[1]))
                                 
-                                # Divisão exata com base nas colunas: FOTO OK fica na esquerda (colunas < 7), FOTO NOK fica na direita (colunas >= 7)
                                 for _, c, f_str in anchors_temp:
                                     if c < 7:
                                         fotos_ok_list.append(f_str)
@@ -327,10 +324,15 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                     st.error(f"Erro ao processar arquivo: {e}")
 
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("💾 Salvar Fotos e Dados na AQ Selecionada", type="primary", use_container_width=True):
+            
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                salvar_btn = st.button("💾 Salvar Fotos e Dados", type="primary", use_container_width=True)
+            with col_b2:
+                limpar_btn = st.button("🗑️ Remover Link/Fotos", type="secondary", use_container_width=True)
+
+            if salvar_btn:
                 dados_update = {}
-                if st.session_state.excel_link:
-                    dados_update["link_alerta"] = st.session_state.excel_link
                 if st.session_state.excel_cliente:
                     dados_update["cliente"] = st.session_state.excel_cliente
                 if st.session_state.excel_area:
@@ -347,9 +349,21 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                         st.toast("Informações e fotos salvas no Supabase com sucesso!", icon="🚀")
                         st.rerun()
                     except Exception as db_err:
-                        st.error(f"Erro ao salvar no banco de dados (verifique se a coluna link_alerta existe no Supabase): {db_err}")
+                        st.error(f"Erro ao salvar no banco de dados: {db_err}")
                 else:
                     st.warning("Nenhum dado novo ou foto para salvar.")
+
+            if limpar_btn:
+                st.session_state.excel_foto_ok = []
+                st.session_state.excel_foto_nok = []
+                st.session_state.excel_link = ""
+                try:
+                    supabase.table("alertas").update({"foto_ok": None, "foto_nok": None, "cliente": None}).eq("id", aq_selecionada_visao).execute()
+                    st.cache_data.clear()
+                    st.toast("Link e fotos removidos com sucesso!", icon="🧹")
+                    st.rerun()
+                except Exception as db_err:
+                    st.error(f"Erro ao limpar no banco de dados: {db_err}")
         else:
             st.warning("Nenhum alerta cadastrado.")
 
@@ -361,9 +375,8 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
             cliente_exibir = st.session_state.get('excel_cliente', '') if st.session_state.get('excel_cliente') else item.get('cliente', '')
             area_exibir = st.session_state.get('excel_area', '') if st.session_state.get('excel_area') else item['area']
             
-            link_db = st.session_state.get('excel_link', '') if st.session_state.get('excel_link') else item.get('link_alerta', '')
+            link_db = st.session_state.get('excel_link', '')
 
-            # Função auxiliar para decodificar listas de fotos salvas no Supabase
             def parse_fotos(val):
                 if not val or pd.isna(val):
                     return []
@@ -381,7 +394,6 @@ elif menu_opcao == "🔍 Alertas de Qualidade":
                 f_ok = parse_fotos(item.get('foto_ok'))
             
             if f_ok:
-                # Exibe lado a lado em grid flexível se houver mais de uma foto
                 img_ok_tag = f"""<div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; padding: 5px;">""" + "".join([f'<img src="{f}" style="width: 48%; height: 220px; object-fit: contain; background-color: #fff; border: 1px solid #ddd; border-radius: 4px;">' for f in f_ok if f]) + "</div>"
             else:
                 img_ok_tag = '<div style="text-align:center; padding:80px; color:#666;">Sem Foto OK</div>'
